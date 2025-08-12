@@ -408,7 +408,7 @@ copies or substantial portions of the Software.
 
 - **Author**: Soltobekov Amin
 - **Email**: asoltobekovv@gmail.com
-- **GitHub**: [@yourusername](https://github.com/991o2o9)
+- **GitHub**: [@991o2o9](https://github.com/991o2o9)
 
 **Project Link**: [https://github.com/yourusername/smart-cardiologist](https://github.com/991o2o9/smart-cardiologist)
 
