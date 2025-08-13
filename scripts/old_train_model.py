@@ -1,9 +1,14 @@
 import pandas as pd
 import numpy as np
+import os
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, roc_auc_score
 import joblib
+from dotenv import load_dotenv
+
+# Загружаем переменные окружения
+load_dotenv()
 
 # 1. Загрузка
 df = pd.read_csv("heart.xls")
@@ -38,6 +43,7 @@ except:
     pass
 
 # 7. Сохранение: сохраняем и модель, и список колонок
+model_path = os.getenv("MODEL_PATH", "model.pkl")
 artifact = {"model": model, "columns": X.columns.tolist()}
-joblib.dump(artifact, "model.pkl")
-print("Saved model.pkl")
+joblib.dump(artifact, model_path)
+print(f"Saved {model_path}")
