@@ -38,26 +38,40 @@ class AuthService:
     
     @staticmethod
     def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-        """Создать JWT токен"""
+        """Создать JWT access токен"""
         to_encode = data.copy()
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
         else:
             expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         
-        to_encode.update({"exp": expire})
+        to_encode.update({"exp": expire, "type": "access"})
         encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
         return encoded_jwt
     
     @staticmethod
-    def verify_token(token: str) -> Optional[TokenData]:
+    def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
+        """Создать JWT refresh токен"""
+        to_encode = data.copy()
+        if expires_delta:
+            expire = datetime.utcnow() + expires_delta
+        else:
+            expire = datetime.utcnow() + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        
+        to_encode.update({"exp": expire, "type": "refresh"})
+        encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+        return encoded_jwt
+    
+    @staticmethod
+    def verify_token(token: str, token_type: str = "access") -> Optional[TokenData]:
         """Проверить JWT токен"""
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
             email: str = payload.get("sub")
             user_id: int = payload.get("user_id")
+            token_type_payload: str = payload.get("type")
             
-            if email is None:
+            if email is None or token_type_payload != token_type:
                 return None
                 
             return TokenData(email=email, user_id=user_id)
@@ -213,7 +227,7 @@ class AuthService:
     @classmethod
     async def get_current_user(cls, db: AsyncSession, token: str) -> Optional[User]:
         """Получить текущего пользователя по токену"""
-        token_data = cls.verify_token(token)
+        token_data = cls.verify_token(token, "access")
         if token_data is None:
             return None
         
@@ -239,16 +253,103 @@ class AuthService:
                 detail="Аккаунт не активирован. Проверьте email для получения кода активации."
             )
         
-        # Создаем токен
+        # Создаем токены
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        
         access_token = cls.create_access_token(
             data={"sub": user.email, "user_id": user.id},
             expires_delta=access_token_expires
         )
         
+        refresh_token = cls.create_refresh_token(
+            data={"sub": user.email, "user_id": user.id},
+            expires_delta=refresh_token_expires
+        )
+        
+        # Сохраняем refresh token в базе данных
+        await db.execute(
+            update(User)
+            .where(User.id == user.id)
+            .values(
+                refresh_token=refresh_token,
+                refresh_token_expires=datetime.utcnow() + refresh_token_expires
+            )
+        )
+        await db.commit()
+        
         logger.info(f"User logged in: {email}")
         return {
             "access_token": access_token,
+            "refresh_token": refresh_token,
+            "token_type": "bearer",
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+            "refresh_expires_in": settings.REFRESH_TOKEN_EXPIRE_DAYS
+        }
+    
+    @classmethod
+    async def refresh_access_token(cls, db: AsyncSession, refresh_token: str) -> dict:
+        """Обновить access token используя refresh token"""
+        # Проверяем refresh token
+        token_data = cls.verify_token(refresh_token, "refresh")
+        if token_data is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Недействительный refresh token"
+            )
+        
+        # Получаем пользователя
+        user = await db.execute(
+            select(User).where(User.id == token_data.user_id)
+        )
+        user = user.scalar_one_or_none()
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Пользователь не найден"
+            )
+        
+        # Проверяем, что refresh token в базе совпадает
+        if user.refresh_token != refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Недействительный refresh token"
+            )
+        
+        # Проверяем срок действия refresh token
+        if user.refresh_token_expires < datetime.utcnow():
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token истек"
+            )
+        
+        # Создаем новый access token
+        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        new_access_token = cls.create_access_token(
+            data={"sub": user.email, "user_id": user.id},
+            expires_delta=access_token_expires
+        )
+        
+        logger.info(f"Access token refreshed for user: {user.email}")
+        return {
+            "access_token": new_access_token,
             "token_type": "bearer",
             "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES
         }
+    
+    @classmethod
+    async def logout_user(cls, db: AsyncSession, user_id: int) -> bool:
+        """Выйти из системы (инвалидировать refresh token)"""
+        await db.execute(
+            update(User)
+            .where(User.id == user_id)
+            .values(
+                refresh_token=None,
+                refresh_token_expires=None
+            )
+        )
+        await db.commit()
+        
+        logger.info(f"User logged out: {user_id}")
+        return True

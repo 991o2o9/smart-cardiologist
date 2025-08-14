@@ -18,6 +18,8 @@ class User(Base):
     activation_code = Column(String(255), nullable=True)
     activation_code_expires = Column(DateTime, nullable=True)
     activation_attempts = Column(Integer, default=0, nullable=False)
+    refresh_token = Column(String(500), nullable=True)  # Добавляем refresh token
+    refresh_token_expires = Column(DateTime, nullable=True)  # Время истечения refresh token
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
     
@@ -31,9 +33,9 @@ class CardioAnalysis(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    age = Column(Integer, nullable=False)
-    pulse = Column(Integer, nullable=False)
-    risk = Column(String(50), nullable=False)
+    age = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    pulse = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    risk = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
     symptoms = Column(Text, nullable=False)
     ai_response = Column(Text, nullable=False)
     cached = Column(Boolean, default=False, nullable=False)
@@ -49,22 +51,22 @@ class HeartPrediction(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    age = Column(Integer, nullable=False)
-    sex = Column(Integer, nullable=False)
-    cp = Column(Integer, nullable=False)
-    trestbps = Column(Integer, nullable=False)
-    chol = Column(Integer, nullable=False)
-    fbs = Column(Integer, nullable=False)
-    restecg = Column(Integer, nullable=False)
-    thalach = Column(Integer, nullable=False)
-    exang = Column(Integer, nullable=False)
-    oldpeak = Column(Float, nullable=False)
-    slope = Column(Integer, nullable=False)
-    ca = Column(Integer, nullable=False)
-    thal = Column(Integer, nullable=False)
-    pulse = Column(Integer, nullable=False)
-    risk_prediction = Column(Integer, nullable=False)
-    probability = Column(Float, nullable=False)
+    age = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    sex = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    cp = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    trestbps = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    chol = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    fbs = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    restecg = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    thalach = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    exang = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    oldpeak = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    slope = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    ca = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    thal = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    pulse = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    risk_prediction = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
+    probability = Column(Text, nullable=False)  # Изменено на Text для зашифрованных данных
     created_at = Column(DateTime, default=func.now(), nullable=False)
     
     # Связи

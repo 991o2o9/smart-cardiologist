@@ -5,6 +5,7 @@ from src.models.schemas import CardioRequest, CardioResponse
 from src.models.database import User, CardioAnalysis
 from src.services.ai_service import AIService
 from src.services.database import get_db
+from src.services.encryption_service import encryption_service
 from src.utils.cache import cache
 from src.utils.rate_limiter import rate_limiter
 from src.utils.auth_middleware import get_current_user
@@ -60,14 +61,23 @@ async def get_cardio_analysis(
     # Проверяем кеш
     cached_response = cache.get(cache_key)
     if cached_response:
+        # Шифруем данные перед сохранением
+        encrypted_data = encryption_service.encrypt_medical_data({
+            'age': request.age,
+            'pulse': request.pulse,
+            'risk': request.risk,
+            'symptoms': request.symptoms,
+            'ai_response': cached_response
+        })
+        
         # Сохраняем в базу данных как кешированный ответ
         analysis = CardioAnalysis(
             user_id=current_user.id,
-            age=request.age,
-            pulse=request.pulse,
-            risk=request.risk,
-            symptoms=request.symptoms,
-            ai_response=cached_response,
+            age=encrypted_data['age'],
+            pulse=encrypted_data['pulse'],
+            risk=encrypted_data['risk'],
+            symptoms=encrypted_data['symptoms'],
+            ai_response=encrypted_data['ai_response'],
             cached=True
         )
         db.add(analysis)
@@ -87,14 +97,23 @@ async def get_cardio_analysis(
         # Сохраняем в кеш
         cache.set(cache_key, ai_response)
         
+        # Шифруем данные перед сохранением
+        encrypted_data = encryption_service.encrypt_medical_data({
+            'age': request.age,
+            'pulse': request.pulse,
+            'risk': request.risk,
+            'symptoms': request.symptoms,
+            'ai_response': ai_response
+        })
+        
         # Сохраняем в базу данных
         analysis = CardioAnalysis(
             user_id=current_user.id,
-            age=request.age,
-            pulse=request.pulse,
-            risk=request.risk,
-            symptoms=request.symptoms,
-            ai_response=ai_response,
+            age=encrypted_data['age'],
+            pulse=encrypted_data['pulse'],
+            risk=encrypted_data['risk'],
+            symptoms=encrypted_data['symptoms'],
+            ai_response=encrypted_data['ai_response'],
             cached=False
         )
         db.add(analysis)
@@ -136,15 +155,23 @@ async def get_analysis_history(
         
         analyses = result.scalars().all()
         
-        # Формируем ответ
+        # Формируем ответ с расшифровкой данных
         history = []
         for analysis in analyses:
+            # Расшифровываем данные
+            decrypted_data = encryption_service.decrypt_medical_data({
+                'age': analysis.age,
+                'pulse': analysis.pulse,
+                'risk': analysis.risk,
+                'symptoms': analysis.symptoms
+            })
+            
             history.append({
                 "id": analysis.id,
-                "age": analysis.age,
-                "pulse": analysis.pulse,
-                "risk": analysis.risk,
-                "symptoms": analysis.symptoms,
+                "age": decrypted_data['age'],
+                "pulse": decrypted_data['pulse'],
+                "risk": decrypted_data['risk'],
+                "symptoms": decrypted_data['symptoms'],
                 "cached": analysis.cached,
                 "created_at": analysis.created_at.isoformat()
             })
@@ -190,13 +217,22 @@ async def get_analysis_details(
                 detail="Анализ не найден"
             )
         
+        # Расшифровываем данные
+        decrypted_data = encryption_service.decrypt_medical_data({
+            'age': analysis.age,
+            'pulse': analysis.pulse,
+            'risk': analysis.risk,
+            'symptoms': analysis.symptoms,
+            'ai_response': analysis.ai_response
+        })
+        
         return {
             "id": analysis.id,
-            "age": analysis.age,
-            "pulse": analysis.pulse,
-            "risk": analysis.risk,
-            "symptoms": analysis.symptoms,
-            "ai_response": analysis.ai_response,
+            "age": decrypted_data['age'],
+            "pulse": decrypted_data['pulse'],
+            "risk": decrypted_data['risk'],
+            "symptoms": decrypted_data['symptoms'],
+            "ai_response": decrypted_data['ai_response'],
             "cached": analysis.cached,
             "created_at": analysis.created_at.isoformat()
         }

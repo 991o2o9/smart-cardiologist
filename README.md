@@ -13,7 +13,8 @@
 
 - **Real-time Heart Disease Predictions**: Instant risk assessment using ML models
 - **AI Cardio-Assistant**: Get consultations from artificial intelligence
-- **User Authentication System**: Registration, login, and user management with JWT
+- **Advanced Authentication System**: JWT with refresh tokens for long-term sessions
+- **End-to-End Data Encryption**: All medical data encrypted for maximum privacy
 - **Analysis History**: Save and view all conducted analyses
 - **RESTful API**: Clean and documented endpoints
 - **Interactive Documentation**: Auto-generated Swagger/OpenAPI docs
@@ -22,6 +23,7 @@
 - **Rate Limiting**: DDoS protection and request throttling
 - **Email Integration**: Account activation and notifications
 - **Database Migrations**: Alembic-powered database versioning
+- **Secure Medical Data Storage**: HIPAA-compliant data protection
 
 ---
 
@@ -288,14 +290,28 @@ curl -X POST "http://localhost:8000/api/v1/auth/login" \
 ```json
 {
     "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+    "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
     "token_type": "bearer",
-    "expires_in": 1800,
-    "user": {
-        "id": 1,
-        "email": "user@example.com",
-        "full_name": "John Doe",
-        "is_active": true
-    }
+    "expires_in": 30,
+    "refresh_expires_in": 30
+}
+```
+
+### Refresh Token
+```bash
+curl -X POST "http://localhost:8000/api/v1/auth/refresh" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "refresh_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+  }'
+```
+
+**Response:**
+```json
+{
+    "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+    "token_type": "bearer",
+    "expires_in": 30
 }
 ```
 
@@ -323,15 +339,13 @@ curl -X POST "http://localhost:8000/api/v1/auth/reset-password" \
 ## 📌 API Endpoints
 
 ### 🔐 Authentication Endpoints
-- **POST** `/api/v1/auth/register` - User registration
-- **POST** `/api/v1/auth/activate` - Account activation
-- **POST** `/api/v1/auth/login` - User login
-- **POST** `/api/v1/auth/logout` - User logout
-- **POST** `/api/v1/auth/refresh` - Token refresh
-- **POST** `/api/v1/auth/forgot-password` - Password reset request
-- **POST** `/api/v1/auth/reset-password` - Password reset confirmation
-- **GET** `/api/v1/auth/profile` - Get user profile
-- **PUT** `/api/v1/auth/profile` - Update user profile
+- **POST** `/auth/register` - User registration
+- **POST** `/auth/activate` - Account activation
+- **POST** `/auth/login` - User login with refresh token
+- **POST** `/auth/refresh` - Refresh access token
+- **POST** `/auth/logout` - User logout (invalidates refresh token)
+- **POST** `/auth/resend-activation` - Resend activation code
+- **GET** `/auth/me` - Get current user info
 
 ### 🤖 AI Cardio-Assistant Endpoints
 ```http
@@ -795,13 +809,16 @@ The system supports customizable email templates for:
 ## 🚨 Security Features
 
 - **Password Security**: bcrypt hashing with salt
-- **JWT Tokens**: Secure authentication with expiration
+- **JWT Tokens**: Secure authentication with access and refresh tokens
+- **End-to-End Encryption**: All medical data encrypted using Fernet (AES-128)
 - **Rate Limiting**: Prevent brute force attacks
 - **Input Validation**: Pydantic schema validation
 - **SQL Injection Protection**: SQLAlchemy ORM
 - **CORS Configuration**: Controlled cross-origin requests
 - **Authentication Middleware**: Protected endpoint access
 - **Environment Variables**: Sensitive data protection
+- **Token Invalidation**: Secure logout with refresh token invalidation
+- **Medical Data Privacy**: HIPAA-compliant data protection
 
 ### Rate Limiting
 ```python

@@ -6,7 +6,7 @@ from src.services.email_service import EmailService
 from src.utils.auth_middleware import get_current_user
 from src.models.auth_schemas import (
     UserRegister, UserLogin, ActivationCode, ResendActivation,
-    Token, UserResponse, MessageResponse
+    Token, UserResponse, MessageResponse, RefreshToken
 )
 from src.models.database import User
 import logging
@@ -160,6 +160,8 @@ async def login_user(
     
     - **email**: Email пользователя
     - **password**: Пароль
+    
+    Возвращает access token и refresh token
     """
     try:
         # Выполняем вход
@@ -181,6 +183,37 @@ async def login_user(
         )
 
 
+@router.post("/refresh", response_model=Token)
+async def refresh_token(
+    refresh_data: RefreshToken,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Обновить access token используя refresh token
+    
+    - **refresh_token**: JWT refresh token
+    
+    Возвращает новый access token
+    """
+    try:
+        # Обновляем access token
+        token_data = await AuthService.refresh_access_token(
+            db=db,
+            refresh_token=refresh_data.refresh_token
+        )
+        
+        return Token(**token_data)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Token refresh error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при обновлении токена"
+        )
+
+
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
     current_user: User = Depends(get_current_user)
@@ -199,15 +232,25 @@ async def get_current_user_info(
 
 
 @router.post("/logout", response_model=MessageResponse)
-async def logout_user():
+async def logout_user(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
     """
     Выход из системы
     
-    В JWT-based аутентификации выход обычно реализуется на клиенте
-    путем удаления токена. Этот endpoint может использоваться для
-    логирования выхода или дополнительной логики.
+    Инвалидирует refresh token пользователя
     """
-    return MessageResponse(
-        message="Выход выполнен успешно",
-        success=True
-    )
+    try:
+        await AuthService.logout_user(db=db, user_id=current_user.id)
+        
+        return MessageResponse(
+            message="Выход выполнен успешно",
+            success=True
+        )
+    except Exception as e:
+        logger.error(f"Logout error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при выходе из системы"
+        )

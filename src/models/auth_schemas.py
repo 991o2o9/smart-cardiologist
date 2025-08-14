@@ -64,8 +64,23 @@ class ResendActivation(BaseModel):
 class Token(BaseModel):
     """Схема JWT токена"""
     access_token: str = Field(..., description="JWT access token")
+    refresh_token: str = Field(..., description="JWT refresh token")
     token_type: str = Field(default="bearer", description="Тип токена")
-    expires_in: int = Field(..., description="Время жизни токена в минутах")
+    expires_in: int = Field(..., description="Время жизни access token в минутах")
+    refresh_expires_in: int = Field(..., description="Время жизни refresh token в днях")
+
+
+class RefreshToken(BaseModel):
+    """Схема для обновления токена"""
+    refresh_token: str = Field(..., description="JWT refresh token")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            }
+        }
+    )
 
 
 class TokenData(BaseModel):
