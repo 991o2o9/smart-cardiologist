@@ -1,6 +1,3 @@
-"""
-API роутер для кардио-ассистента
-"""
 from fastapi import APIRouter, Request, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select

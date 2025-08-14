@@ -1,6 +1,3 @@
-"""
-Сервис для работы с AI (Groq)
-"""
 import os
 from typing import Optional
 from groq import Groq

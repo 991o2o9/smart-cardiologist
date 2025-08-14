@@ -1,6 +1,3 @@
-"""
-Основное FastAPI приложение Smart Cardiologist
-"""
 import os
 import logging
 from contextlib import asynccontextmanager

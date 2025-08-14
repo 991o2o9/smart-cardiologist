@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-"""
-Скрипт для запуска Smart Cardiologist API
-"""
 import sys
 import os
 import uvicorn

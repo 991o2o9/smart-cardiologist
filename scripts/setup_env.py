@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-"""
-Скрипт для настройки переменных окружения
-"""
 import os
 import shutil
 

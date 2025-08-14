@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-"""
-Скрипт для тестирования API
-"""
 import sys
 import requests
 import json

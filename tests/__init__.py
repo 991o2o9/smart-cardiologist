@@ -1,3 +1,0 @@
-"""
-Тесты для Smart Cardiologist
-"""

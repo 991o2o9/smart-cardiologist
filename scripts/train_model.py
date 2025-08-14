@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-"""
-Скрипт для обучения ML модели
-"""
 import sys
 import os
 import pandas as pd

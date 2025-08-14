@@ -1,6 +1,3 @@
-"""
-API роутер для авторизации
-"""
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.services.database import get_db

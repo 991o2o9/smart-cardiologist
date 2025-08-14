@@ -1,13 +1,9 @@
-"""
-API роутер для предсказания риска сердечных заболеваний
-"""
 from fastapi import APIRouter, HTTPException
 from src.models.schemas import HeartData, HeartPredictionResponse
 from src.services.ml_service import MLService
 
 router = APIRouter(prefix="/heart-prediction", tags=["Heart Prediction"])
 
-# Инициализация сервиса
 ml_service = MLService()
 
 @router.post("/predict", response_model=HeartPredictionResponse)

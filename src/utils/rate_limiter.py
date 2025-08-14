@@ -1,6 +1,3 @@
-"""
-Утилиты для ограничения запросов (Rate Limiting)
-"""
 import time
 from typing import Dict, List
 import os
@@ -9,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Настройки rate limiting из переменных окружения
-RATE_LIMIT = int(os.getenv("RATE_LIMIT", 5))  # 5 запросов в минуту по умолчанию
+RATE_LIMIT = int(os.getenv("RATE_LIMIT", 5))  
 
 class RateLimiter:
     """Rate limiter с sliding window"""
@@ -131,5 +128,4 @@ class RateLimiter:
         }
 
 
-# Глобальный экземпляр rate limiter
 rate_limiter = RateLimiter()

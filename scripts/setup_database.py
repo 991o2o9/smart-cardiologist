@@ -1,7 +1,3 @@
-#!/usr/bin/env python3
-"""
-Скрипт для настройки базы данных PostgreSQL
-"""
 import asyncio
 import asyncpg
 import logging

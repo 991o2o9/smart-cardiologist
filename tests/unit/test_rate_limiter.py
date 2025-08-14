@@ -1,6 +1,3 @@
-"""
-Unit тесты для rate limiter
-"""
 import pytest
 import time
 from src.utils.rate_limiter import RateLimiter

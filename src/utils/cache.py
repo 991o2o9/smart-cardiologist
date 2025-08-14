@@ -1,6 +1,3 @@
-"""
-Утилиты для кеширования
-"""
 import time
 from typing import Dict, Any, Optional
 import os
@@ -66,5 +63,4 @@ class Cache:
         }
 
 
-# Глобальный экземпляр кеша
 cache = Cache()

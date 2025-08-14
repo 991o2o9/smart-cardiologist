@@ -1,6 +1,3 @@
-"""
-Pydantic схемы для API
-"""
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional
 
