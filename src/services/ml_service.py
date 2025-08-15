@@ -6,6 +6,7 @@ import joblib
 import pandas as pd
 from typing import Dict, Any, Tuple
 from dotenv import load_dotenv
+from config.settings import settings
 
 load_dotenv()
 
@@ -14,7 +15,7 @@ class MLService:
     
     def __init__(self, model_path: str = None):
         if model_path is None:
-            model_path = os.getenv("MODEL_PATH", "data/processed/model.pkl")
+            model_path = settings.MODEL_PATH
         
         self.model_path = model_path
         self.model = None

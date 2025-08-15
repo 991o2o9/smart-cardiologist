@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = "http://localhost:5173"
     
     # Model Configuration
-    MODEL_PATH: str = "model.pkl"
+    MODEL_PATH: str = "data/processed/model.pkl"
     
     # Режим разработки
     DEBUG: bool = True
