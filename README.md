@@ -452,6 +452,63 @@ GET /health/
 
 ---
 
+## 📊 User Analytics Endpoint
+
+### Endpoint: `/api/v1/analytics`
+
+Returns aggregated analytics for the authenticated user's heart predictions over a selected period (week or month):
+- Average, minimum, maximum values for risk, pulse, and blood pressure
+- Trends for each metric (increasing, decreasing, stable)
+- Timestamp of the latest analysis
+
+**Authentication (JWT token) is required!**
+
+#### Example Request
+```http
+GET /api/v1/analytics?period=week
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+#### Example Response
+```json
+{
+  "user_id": 123,
+  "period": "week",
+  "risk": {
+    "avg": 0.23,
+    "min": 0.12,
+    "max": 0.35,
+    "trend": "increasing"
+  },
+  "pulse": {
+    "avg": 72,
+    "min": 65,
+    "max": 80,
+    "trend": "stable"
+  },
+  "pressure": {
+    "avg": { "systolic": 120, "diastolic": null },
+    "min": { "systolic": 110, "diastolic": null },
+    "max": { "systolic": 130, "diastolic": null },
+    "trend": { "systolic": "decreasing", "diastolic": null }
+  },
+  "last_updated": "2025-08-16T14:35:00Z"
+}
+```
+
+- `period`: "week" or "month"
+- `risk`: aggregated risk values (0-1)
+- `pulse`: aggregated pulse values
+- `pressure`: only systolic blood pressure is available (diastolic is always null)
+- `trend`: "increasing", "decreasing", or "stable"
+- `last_updated`: timestamp of the latest analysis
+
+**Notes:**
+- `user_id` is determined automatically from the token; you do not need to provide it.
+- If there is no data for the selected period, a 404 error is returned.
+
+---
+
 ## 🧠 Machine Learning Model
 
 ### Input Features

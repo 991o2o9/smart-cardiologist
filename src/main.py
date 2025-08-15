@@ -9,6 +9,7 @@ from config.settings import settings
 from src.api.cardio_assistant import router as cardio_router
 from src.api.heart_prediction import router as heart_router
 from src.api.auth import router as auth_router
+from src.api.analytics import router as analytics_router
 
 # Импорт сервисов
 from src.services.database import init_db, close_db, check_db_connection
@@ -64,7 +65,7 @@ app = FastAPI(
 )
 
 # Настройки CORS
-origins = ["*"]  # В продакшене настройте конкретные домены
+origins = ["*"]
 
 app.add_middleware(
     CORSMiddleware,
@@ -78,6 +79,7 @@ app.add_middleware(
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(cardio_router, prefix="/api/v1")
 app.include_router(heart_router, prefix="/api/v1")
+app.include_router(analytics_router, prefix="/api/v1")
 
 
 @app.get("/")
@@ -106,8 +108,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Общая проверка здоровья приложения"""
-    try:
-        # Проверяем подключение к базе данных
+    try:        
         db_healthy = await check_db_connection()
         
         return {
@@ -115,7 +116,7 @@ async def health_check():
             "service": "Smart Cardiologist API",
             "version": "1.0.0",
             "database": "connected" if db_healthy else "disconnected",
-            "timestamp": "2024-01-01T00:00:00Z"  # В реальном приложении используйте datetime.now()
+            "timestamp": "2024-01-01T00:00:00Z"  
         }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
