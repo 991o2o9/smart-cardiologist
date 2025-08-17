@@ -19,26 +19,26 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class AuthService:
-    """Сервис для работы с авторизацией"""
+    """Service for authentication operations"""
     
     @staticmethod
     def verify_password(plain_password: str, hashed_password: str) -> bool:
-        """Проверить пароль"""
+        """Verify password"""
         return pwd_context.verify(plain_password, hashed_password)
     
     @staticmethod
     def get_password_hash(password: str) -> str:
-        """Получить хэш пароля"""
+        """Get password hash"""
         return pwd_context.hash(password)
     
     @staticmethod
     def generate_activation_code() -> str:
-        """Сгенерировать 6-значный код активации"""
+        """Generate 6-digit activation code"""
         return ''.join(secrets.choice(string.digits) for _ in range(6))
     
     @staticmethod
     def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-        """Создать JWT access токен"""
+        """Create JWT access token"""
         to_encode = data.copy()
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
@@ -51,7 +51,7 @@ class AuthService:
     
     @staticmethod
     def create_refresh_token(data: dict, expires_delta: Optional[timedelta] = None):
-        """Создать JWT refresh токен"""
+        """Create JWT refresh token"""
         to_encode = data.copy()
         if expires_delta:
             expire = datetime.utcnow() + expires_delta
@@ -64,7 +64,7 @@ class AuthService:
     
     @staticmethod
     def verify_token(token: str, token_type: str = "access") -> Optional[TokenData]:
-        """Проверить JWT токен"""
+        """Verify JWT token"""
         try:
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
             email: str = payload.get("sub")
@@ -80,18 +80,18 @@ class AuthService:
     
     @classmethod
     async def register_user(cls, db: AsyncSession, email: str, password: str) -> User:
-        """Зарегистрировать нового пользователя"""
-        # Проверяем, существует ли пользователь
+        """Register new user"""
+        # Check if user exists
         existing_user = await db.execute(
             select(User).where(User.email == email)
         )
         if existing_user.scalar_one_or_none():
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Пользователь с таким email уже существует"
+                detail="User with this email already exists"
             )
         
-        # Создаем пользователя
+        # Create user
         activation_code = cls.generate_activation_code()
         activation_expires = datetime.utcnow() + timedelta(minutes=settings.ACTIVATION_CODE_EXPIRE_MINUTES)
         
@@ -112,7 +112,7 @@ class AuthService:
     
     @classmethod
     async def activate_account(cls, db: AsyncSession, email: str, activation_code: str) -> bool:
-        """Активировать аккаунт пользователя"""
+        """Activate user account"""
         user = await db.execute(
             select(User).where(User.email == email)
         )
@@ -121,27 +121,27 @@ class AuthService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Пользователь не найден"
+                detail="User not found"
             )
         
         if user.is_activated:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Аккаунт уже активирован"
+                detail="Account is already activated"
             )
         
-        # Проверяем количество попыток
+        # Check attempt count
         if user.activation_attempts >= settings.MAX_ACTIVATION_ATTEMPTS:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Превышено количество попыток активации. Запросите новый код."
+                detail="Maximum activation attempts exceeded. Request a new code."
             )
         
-        # Проверяем код и срок действия
+        # Check code and expiration
         if (user.activation_code != activation_code or 
             user.activation_code_expires < datetime.utcnow()):
             
-            # Увеличиваем счетчик попыток
+            # Increment attempt counter
             await db.execute(
                 update(User)
                 .where(User.id == user.id)
@@ -151,10 +151,10 @@ class AuthService:
             
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Неверный код активации или код истек"
+                detail="Invalid activation code or code expired"
             )
         
-        # Активируем аккаунт
+        # Activate account
         await db.execute(
             update(User)
             .where(User.id == user.id)
@@ -172,7 +172,7 @@ class AuthService:
     
     @classmethod
     async def resend_activation_code(cls, db: AsyncSession, email: str) -> str:
-        """Отправить новый код активации"""
+        """Send new activation code"""
         user = await db.execute(
             select(User).where(User.email == email)
         )
@@ -181,16 +181,16 @@ class AuthService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Пользователь не найден"
+                detail="User not found"
             )
         
         if user.is_activated:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Аккаунт уже активирован"
+                detail="Account is already activated"
             )
         
-        # Генерируем новый код
+        # Generate new code
         new_activation_code = cls.generate_activation_code()
         new_expires = datetime.utcnow() + timedelta(minutes=settings.ACTIVATION_CODE_EXPIRE_MINUTES)
         
@@ -210,7 +210,7 @@ class AuthService:
     
     @classmethod
     async def authenticate_user(cls, db: AsyncSession, email: str, password: str) -> Optional[User]:
-        """Аутентифицировать пользователя"""
+        """Authenticate user"""
         user = await db.execute(
             select(User).where(User.email == email)
         )
@@ -226,7 +226,7 @@ class AuthService:
     
     @classmethod
     async def get_current_user(cls, db: AsyncSession, token: str) -> Optional[User]:
-        """Получить текущего пользователя по токену"""
+        """Get current user by token"""
         token_data = cls.verify_token(token, "access")
         if token_data is None:
             return None
@@ -238,22 +238,22 @@ class AuthService:
     
     @classmethod
     async def login_user(cls, db: AsyncSession, email: str, password: str) -> dict:
-        """Войти в систему"""
+        """Login to system"""
         user = await cls.authenticate_user(db, email, password)
         
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Неверный email или пароль"
+                detail="Invalid email or password"
             )
         
         if not user.is_activated:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Аккаунт не активирован. Проверьте email для получения кода активации."
+                detail="Account not activated. Check your email for activation code."
             )
         
-        # Создаем токены
+        # Create tokens
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         
@@ -267,7 +267,7 @@ class AuthService:
             expires_delta=refresh_token_expires
         )
         
-        # Сохраняем refresh token в базе данных
+        # Save refresh token in database
         await db.execute(
             update(User)
             .where(User.id == user.id)
@@ -289,16 +289,16 @@ class AuthService:
     
     @classmethod
     async def refresh_access_token(cls, db: AsyncSession, refresh_token: str) -> dict:
-        """Обновить access token используя refresh token"""
-        # Проверяем refresh token
+        """Refresh access token using refresh token"""
+        # Verify refresh token
         token_data = cls.verify_token(refresh_token, "refresh")
         if token_data is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Недействительный refresh token"
+                detail="Invalid refresh token"
             )
         
-        # Получаем пользователя
+        # Get user
         user = await db.execute(
             select(User).where(User.id == token_data.user_id)
         )
@@ -307,24 +307,24 @@ class AuthService:
         if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Пользователь не найден"
+                detail="User not found"
             )
         
-        # Проверяем, что refresh token в базе совпадает
+        # Check if refresh token in database matches
         if user.refresh_token != refresh_token:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Недействительный refresh token"
+                detail="Invalid refresh token"
             )
         
-        # Проверяем срок действия refresh token
+        # Check refresh token expiration
         if user.refresh_token_expires < datetime.utcnow():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Refresh token истек"
+                detail="Refresh token expired"
             )
         
-        # Создаем новый access token
+        # Create new access token
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         new_access_token = cls.create_access_token(
             data={"sub": user.email, "user_id": user.id},
@@ -340,7 +340,7 @@ class AuthService:
     
     @classmethod
     async def logout_user(cls, db: AsyncSession, user_id: int) -> bool:
-        """Выйти из системы (инвалидировать refresh token)"""
+        """Logout from system (invalidate refresh token)"""
         await db.execute(
             update(User)
             .where(User.id == user_id)

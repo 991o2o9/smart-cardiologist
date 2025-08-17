@@ -3,6 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
+from sqlalchemy.dialects.postgresql import JSONB
 
 Base = declarative_base()
 
@@ -70,4 +71,15 @@ class HeartPrediction(Base):
     created_at = Column(DateTime, default=func.now(), nullable=False)
     
     # Связи
+    user = relationship("User")
+
+
+class CardioChat(Base):
+    __tablename__ = "cardio_chats"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    messages = Column(JSONB, nullable=False)  # Список сообщений (chat history)
+    summary = Column(Text, nullable=True)     # Краткое описание/первые сообщения
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
     user = relationship("User")

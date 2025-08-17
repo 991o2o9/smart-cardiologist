@@ -10,16 +10,16 @@ logger = logging.getLogger(__name__)
 
 
 class EncryptionService:
-    """Сервис для шифрования данных пользователя"""
+    """Service for encrypting user data"""
     
     def __init__(self):
-        # Генерируем ключ шифрования на основе SECRET_KEY
+        # Generate encryption key based on SECRET_KEY
         self._key = self._generate_key()
         self._cipher_suite = Fernet(self._key)
     
     def _generate_key(self) -> bytes:
-        """Генерировать ключ шифрования на основе SECRET_KEY"""
-        # Используем SECRET_KEY как соль для генерации ключа
+        """Generate encryption key based on SECRET_KEY"""
+        # Use SECRET_KEY as salt for key generation
         salt = settings.SECRET_KEY.encode()
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
@@ -31,7 +31,7 @@ class EncryptionService:
         return key
     
     def encrypt_data(self, data: str) -> str:
-        """Зашифровать данные"""
+        """Encrypt data"""
         try:
             if not data:
                 return data
@@ -40,28 +40,28 @@ class EncryptionService:
             return base64.urlsafe_b64encode(encrypted_data).decode()
         except Exception as e:
             logger.error(f"Encryption error: {e}")
-            raise ValueError("Ошибка при шифровании данных")
+            raise ValueError("Error encrypting data")
     
     def decrypt_data(self, encrypted_data: str) -> str:
-        """Расшифровать данные"""
+        """Decrypt data"""
         try:
             if not encrypted_data:
                 return encrypted_data
             
-            # Декодируем из base64
+            # Decode from base64
             encrypted_bytes = base64.urlsafe_b64decode(encrypted_data.encode())
-            # Расшифровываем
+            # Decrypt
             decrypted_data = self._cipher_suite.decrypt(encrypted_bytes)
             return decrypted_data.decode()
         except Exception as e:
             logger.error(f"Decryption error: {e}")
-            raise ValueError("Ошибка при расшифровке данных")
+            raise ValueError("Error decrypting data")
     
     def encrypt_medical_data(self, data: dict) -> dict:
-        """Зашифровать медицинские данные"""
+        """Encrypt medical data"""
         encrypted_data = {}
         
-        # Список полей, которые нужно зашифровать
+        # List of fields that need to be encrypted
         sensitive_fields = [
             'symptoms', 'ai_response', 'risk', 'risk_prediction',
             'pulse', 'age', 'sex', 'cp', 'trestbps', 'chol',
@@ -72,7 +72,7 @@ class EncryptionService:
         for key, value in data.items():
             if key in sensitive_fields and value is not None:
                 if isinstance(value, (int, float)):
-                    # Для числовых значений конвертируем в строку
+                    # For numeric values convert to string
                     encrypted_data[key] = self.encrypt_data(str(value))
                 elif isinstance(value, str):
                     encrypted_data[key] = self.encrypt_data(value)
@@ -84,10 +84,10 @@ class EncryptionService:
         return encrypted_data
     
     def decrypt_medical_data(self, data: dict) -> dict:
-        """Расшифровать медицинские данные"""
+        """Decrypt medical data"""
         decrypted_data = {}
         
-        # Список полей, которые нужно расшифровать
+        # List of fields that need to be decrypted
         sensitive_fields = [
             'symptoms', 'ai_response', 'risk', 'risk_prediction',
             'pulse', 'age', 'sex', 'cp', 'trestbps', 'chol',
@@ -99,7 +99,7 @@ class EncryptionService:
             if key in sensitive_fields and value is not None:
                 try:
                     decrypted_value = self.decrypt_data(value)
-                    # Пытаемся конвертировать обратно в число, если это возможно
+                    # Try to convert back to number if possible
                     try:
                         if '.' in decrypted_value:
                             decrypted_data[key] = float(decrypted_value)
@@ -108,7 +108,7 @@ class EncryptionService:
                     except ValueError:
                         decrypted_data[key] = decrypted_value
                 except Exception:
-                    # Если не удалось расшифровать, оставляем как есть
+                    # If decryption failed, leave as is
                     decrypted_data[key] = value
             else:
                 decrypted_data[key] = value
@@ -116,5 +116,5 @@ class EncryptionService:
         return decrypted_data
 
 
-# Создаем глобальный экземпляр сервиса шифрования
+# Create global encryption service instance
 encryption_service = EncryptionService()

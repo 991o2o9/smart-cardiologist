@@ -22,17 +22,17 @@ async def predict_heart_risk(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Предсказать риск сердечных заболеваний
+    Predict heart disease risk
     
-    Требует авторизации.
+    Requires authorization.
     
-    Принимает медицинские параметры пациента и возвращает оценку риска.
+    Accepts patient medical parameters and returns risk assessment.
     """
     try:
-        # Предсказание
+        # Prediction
         risk, probability = ml_service.predict_heart_risk(data.model_dump())
         
-        # Шифруем данные перед сохранением
+        # Encrypt data before saving
         encrypted_data = encryption_service.encrypt_medical_data({
             'age': data.age,
             'sex': data.sex,
@@ -52,7 +52,7 @@ async def predict_heart_risk(
             'probability': probability
         })
         
-        # Сохраняем в базу данных
+        # Save to database
         prediction = HeartPrediction(
             user_id=current_user.id,
             age=encrypted_data['age'],
@@ -82,7 +82,7 @@ async def predict_heart_risk(
         
     except Exception as e:
         logger.error(f"Prediction error: {e}")
-        raise HTTPException(status_code=500, detail=f"Ошибка предсказания: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
 
 @router.get("/history", response_model=list[dict])
@@ -93,15 +93,15 @@ async def get_prediction_history(
     offset: int = 0
 ):
     """
-    Получить историю предсказаний пользователя
+    Get user prediction history
     
-    Требует авторизации.
+    Requires authorization.
     
-    - **limit**: Количество записей (по умолчанию 10)
-    - **offset**: Смещение (по умолчанию 0)
+    - **limit**: Number of records (default 10)
+    - **offset**: Offset (default 0)
     """
     try:
-        # Получаем историю предсказаний
+        # Get prediction history
         result = await db.execute(
             select(HeartPrediction)
             .where(HeartPrediction.user_id == current_user.id)
@@ -112,10 +112,10 @@ async def get_prediction_history(
         
         predictions = result.scalars().all()
         
-        # Формируем ответ с расшифровкой данных
+        # Form response with decrypted data
         history = []
         for prediction in predictions:
-            # Расшифровываем данные
+            # Decrypt data
             decrypted_data = encryption_service.decrypt_medical_data({
                 'age': prediction.age,
                 'sex': prediction.sex,
@@ -162,7 +162,7 @@ async def get_prediction_history(
         logger.error(f"Error getting prediction history: {e}")
         raise HTTPException(
             status_code=500, 
-            detail="Ошибка при получении истории предсказаний"
+            detail="Error getting prediction history"
         )
 
 
@@ -173,14 +173,14 @@ async def get_prediction_details(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Получить детали конкретного предсказания
+    Get details of specific prediction
     
-    Требует авторизации.
+    Requires authorization.
     
-    - **prediction_id**: ID предсказания
+    - **prediction_id**: Prediction ID
     """
     try:
-        # Получаем предсказание
+        # Get prediction
         result = await db.execute(
             select(HeartPrediction)
             .where(
@@ -194,10 +194,10 @@ async def get_prediction_details(
         if not prediction:
             raise HTTPException(
                 status_code=404,
-                detail="Предсказание не найдено"
+                detail="Prediction not found"
             )
         
-        # Расшифровываем данные
+        # Decrypt data
         decrypted_data = encryption_service.decrypt_medical_data({
             'age': prediction.age,
             'sex': prediction.sex,
@@ -244,13 +244,13 @@ async def get_prediction_details(
         logger.error(f"Error getting prediction details: {e}")
         raise HTTPException(
             status_code=500,
-            detail="Ошибка при получении деталей предсказания"
+            detail="Error getting prediction details"
         )
 
 
 @router.get("/health")
 async def health_check():
-    """Проверка здоровья ML сервиса"""
+    """ML service health check"""
     return {
         "status": "healthy" if ml_service.is_healthy() else "unhealthy",
         "model_info": ml_service.get_model_info()
@@ -258,15 +258,15 @@ async def health_check():
 
 @router.get("/feature-importance")
 async def get_feature_importance():
-    """Получить важность признаков модели"""
+    """Get model feature importance"""
     try:
         importance = ml_service.get_feature_importance()
         return {
             "feature_importance": importance,
-            "top_features": list(importance.items())[:10]  # Топ-10 признаков
+            "top_features": list(importance.items())[:10]  # Top 10 features
         }
     except Exception as e:
         raise HTTPException(
             status_code=500, 
-            detail=f"Ошибка при получении важности признаков: {str(e)}"
+            detail=f"Error getting feature importance: {str(e)}"
         )

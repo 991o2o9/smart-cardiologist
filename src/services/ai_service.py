@@ -6,35 +6,35 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class AIService:
-    """Сервис для работы с Groq AI"""
+    """Service for working with Groq AI"""
     
     def __init__(self):
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
-            raise ValueError("GROQ_API_KEY не найден в переменных окружения")
+            raise ValueError("GROQ_API_KEY not found in environment variables")
         
         self.client = Groq(api_key=api_key)
         self.model = "openai/gpt-oss-20b"
     
     def get_cardio_analysis(self, age: int, pulse: int, risk: str, symptoms: str) -> str:
         """
-        Получить анализ от AI кардиолога
+        Get analysis from AI cardiologist
         
         Args:
-            age: Возраст пациента
-            pulse: Пульс
-            risk: Уровень риска
-            symptoms: Симптомы
+            age: Patient age
+            pulse: Pulse rate
+            risk: Risk level
+            symptoms: Symptoms
             
         Returns:
-            str: Ответ от AI кардиолога
+            str: Response from AI cardiologist
         """
         user_prompt = (
-            f"Возраст: {age}\n"
-            f"Пульс: {pulse}\n"
-            f"Риск: {risk}\n"
-            f"Симптомы: {symptoms}\n\n"
-            f"Дай понятное объяснение состояния, советы по образу жизни и ответь как кардиолог."
+            f"Age: {age}\n"
+            f"Pulse: {pulse}\n"
+            f"Risk: {risk}\n"
+            f"Symptoms: {symptoms}\n\n"
+            f"Give a clear explanation of the condition, lifestyle advice and respond as a cardiologist."
         )
         
         try:
@@ -51,21 +51,21 @@ class AIService:
             return completion.choices[0].message.content.strip()
             
         except Exception as e:
-            raise Exception(f"Ошибка при обращении к AI: {str(e)}")
+            raise Exception(f"Error when contacting AI: {str(e)}")
     
     def get_health_advice(self, condition: str) -> str:
         """
-        Получить общие советы по здоровью
+        Get general health advice
         
         Args:
-            condition: Описание состояния
+            condition: Condition description
             
         Returns:
-            str: Советы по здоровью
+            str: Health and lifestyle advice
         """
         user_prompt = (
-            f"Состояние: {condition}\n\n"
-            f"Дай общие советы по здоровью и образу жизни для этого состояния."
+            f"Condition: {condition}\n\n"
+            f"Give general health and lifestyle advice for this condition."
         )
         
         try:
@@ -81,20 +81,20 @@ class AIService:
             return completion.choices[0].message.content.strip()
             
         except Exception as e:
-            raise Exception(f"Ошибка при обращении к AI: {str(e)}")
+            raise Exception(f"Error when contacting AI: {str(e)}")
     
     def is_healthy(self) -> bool:
         """
-        Проверить доступность AI сервиса
+        Check AI service availability
         
         Returns:
-            bool: True если сервис доступен
+            bool: True if service is available
         """
         try:
-            # Простой тестовый запрос
+            # Simple test request
             completion = self.client.chat.completions.create(
                 model=self.model,
-                messages=[{"role": "user", "content": "Тест"}],
+                messages=[{"role": "user", "content": "Test"}],
                 max_completion_tokens=10,
                 stream=False
             )

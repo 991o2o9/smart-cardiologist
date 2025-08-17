@@ -1,108 +1,132 @@
-import sys
+#!/usr/bin/env python3
+"""
+Script for training heart disease risk prediction model
+"""
+
 import os
 import pandas as pd
 import numpy as np
-from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report, roc_auc_score
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 import joblib
+import logging
 
-# Добавляем корневую директорию в PYTHONPATH
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-from config.settings import settings
+def load_data(data_path: str) -> pd.DataFrame:
+    """Load training data"""
+    if not os.path.exists(data_path):
+        raise FileNotFoundError(f"Data file not found: {data_path}")
+    
+    # Load data
+    if data_path.endswith('.xls') or data_path.endswith('.xlsx'):
+        data = pd.read_excel(data_path)
+    elif data_path.endswith('.csv'):
+        data = pd.read_csv(data_path)
+    else:
+        raise ValueError("Unsupported file format. Use .xls, .xlsx, or .csv")
+    
+    logger.info(f"Data loaded: {data.shape}")
+    return data
 
-def train_model():
-    """Обучить модель"""
+def preprocess_data(data: pd.DataFrame) -> tuple:
+    """Preprocess data for training"""
+    # Remove duplicates
+    data = data.drop_duplicates()
+    
+    # Handle missing values
+    data = data.dropna()
+    
+    # Separate features and target
+    X = data.drop('target', axis=1)
+    y = data['target']
+    
+    # One-hot encoding for categorical variables
+    categorical_cols = ['sex', 'cp', 'fbs', 'restecg', 'exang', 'slope', 'ca', 'thal']
+    X_encoded = pd.get_dummies(X, columns=categorical_cols)
+    
+    logger.info(f"Preprocessed data: {X_encoded.shape}")
+    return X_encoded, y
+
+def train_model(X: pd.DataFrame, y: pd.Series) -> RandomForestClassifier:
+    """Train Random Forest model"""
+    # Split data
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42, stratify=y
+    )
+    
+    # Scale features
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    
+    # Train model
+    model = RandomForestClassifier(
+        n_estimators=100,
+        max_depth=10,
+        random_state=42,
+        n_jobs=-1
+    )
+    
+    model.fit(X_train_scaled, y_train)
+    
+    # Evaluate
+    y_pred = model.predict(X_test_scaled)
+    accuracy = accuracy_score(y_test, y_pred)
+    
+    logger.info(f"Model accuracy: {accuracy:.4f}")
+    logger.info("\nClassification Report:")
+    logger.info(classification_report(y_test, y_pred))
+    
+    return model, scaler, X.columns.tolist()
+
+def save_model(model, scaler, columns, output_path: str):
+    """Save trained model and metadata"""
+    # Create output directory if it doesn't exist
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    # Save model artifact
+    artifact = {
+        'model': model,
+        'scaler': scaler,
+        'columns': columns
+    }
+    
+    joblib.dump(artifact, output_path)
+    logger.info(f"Model saved to: {output_path}")
+
+def main():
+    """Main training function"""
+    # Paths
+    data_path = "data/raw/heart.xls"
+    output_path = "data/processed/model.pkl"
+    
     try:
-        print("🤖 Обучение ML модели...")
+        # Load data
+        logger.info("Loading data...")
+        data = load_data(data_path)
         
-        # Пути к файлам
-        data_path = project_root / "data" / "raw" / "heart.xls"
-        model_path = project_root / "data" / "processed" / "model.pkl"
+        # Preprocess data
+        logger.info("Preprocessing data...")
+        X, y = preprocess_data(data)
         
-        # Создаем директорию если не существует
-        model_path.parent.mkdir(parents=True, exist_ok=True)
+        # Train model
+        logger.info("Training model...")
+        model, scaler, columns = train_model(X, y)
         
-        # 1. Загрузка данных
-        print("📊 Загрузка данных...")
-        if not data_path.exists():
-            raise FileNotFoundError(f"Файл данных не найден: {data_path}")
+        # Save model
+        logger.info("Saving model...")
+        save_model(model, scaler, columns, output_path)
         
-        df = pd.read_csv(data_path)
-        print(f"   Загружено {len(df)} записей")
-        
-        # 2. Добавляем pulse, если нет
-        if "pulse" not in df.columns:
-            print("   Добавление колонки pulse...")
-            df["pulse"] = np.random.randint(60, 110, size=len(df))
-        
-        # 3. Проверяем наличие целевой колонки
-        if "target" not in df.columns:
-            raise ValueError("В датасете нет колонки 'target'")
-        
-        # 4. Подготовка данных
-        print("🔧 Подготовка данных...")
-        X = df.drop(columns=["target"])
-        y = df["target"]
-        
-        # One-hot encoding
-        X = pd.get_dummies(X)
-        print(f"   Количество признаков: {X.shape[1]}")
-        
-        # 5. Разбивка на train/test
-        print("📈 Разбивка на train/test...")
-        X_train, X_test, y_train, y_test = train_test_split(
-            X, y, test_size=0.2, random_state=42
-        )
-        print(f"   Train: {len(X_train)} записей")
-        print(f"   Test: {len(X_test)} записей")
-        
-        # 6. Обучение модели
-        print("🎯 Обучение модели...")
-        model = RandomForestClassifier(
-            n_estimators=200, 
-            random_state=42,
-            n_jobs=-1
-        )
-        model.fit(X_train, y_train)
-        
-        # 7. Оценка модели
-        print("📊 Оценка модели...")
-        y_pred = model.predict(X_test)
-        
-        print("\n📋 Classification Report:")
-        print(classification_report(y_test, y_pred))
-        
-        try:
-            roc_auc = roc_auc_score(y_test, model.predict_proba(X_test)[:, 1])
-            print(f"🎯 ROC AUC: {roc_auc:.4f}")
-        except:
-            print("⚠️  ROC AUC недоступен")
-        
-        # 8. Сохранение модели
-        print("💾 Сохранение модели...")
-        artifact = {
-            "model": model,
-            "columns": X.columns.tolist()
-        }
-        joblib.dump(artifact, model_path)
-        print(f"   Модель сохранена: {model_path}")
-        
-        # 9. Информация о модели
-        print("\n📋 Информация о модели:")
-        print(f"   Тип: {type(model).__name__}")
-        print(f"   Признаков: {len(X.columns)}")
-        print(f"   Деревьев: {model.n_estimators}")
-        print(f"   Точность на тесте: {(y_pred == y_test).mean():.4f}")
-        
-        print("\n✅ Обучение завершено успешно!")
+        logger.info("✅ Model training completed successfully!")
         
     except Exception as e:
-        print(f"❌ Ошибка при обучении модели: {e}")
-        sys.exit(1)
+        logger.error(f"❌ Error during model training: {e}")
+        raise
 
 if __name__ == "__main__":
-    train_model()
+    main()

@@ -13,9 +13,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/auth", tags=["Авторизация"])
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
-# Инициализация сервисов
+# Initialize services
 email_service = EmailService()
 
 
@@ -25,20 +25,20 @@ async def register_user(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Регистрация нового пользователя
+    Register new user
     
-    - **email**: Email пользователя
-    - **password**: Пароль (минимум 8 символов)
+    - **email**: User email
+    - **password**: Password (minimum 8 characters)
     """
     try:
-        # Регистрируем пользователя
+        # Register user
         user = await AuthService.register_user(
             db=db,
             email=user_data.email,
             password=user_data.password
         )
         
-        # Отправляем email с кодом активации
+        # Send activation email
         activation_sent = await email_service.send_activation_email(
             email=user.email,
             activation_code=user.activation_code
@@ -46,10 +46,10 @@ async def register_user(
         
         if not activation_sent:
             logger.warning(f"Failed to send activation email to {user.email}")
-            # Можно добавить логику повторной отправки или уведомления администратора
+            # Can add retry logic or admin notification
         
         return MessageResponse(
-            message="Регистрация успешна! Проверьте email для получения кода активации.",
+            message="Registration successful! Check your email for activation code.",
             success=True
         )
         
@@ -59,7 +59,7 @@ async def register_user(
         logger.error(f"Registration error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка при регистрации пользователя"
+            detail="Error registering user"
         )
 
 
@@ -69,13 +69,13 @@ async def activate_account(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Активация аккаунта по коду
+    Activate account by code
     
-    - **email**: Email пользователя
-    - **activation_code**: 6-значный код активации
+    - **email**: User email
+    - **activation_code**: 6-digit activation code
     """
     try:
-        # Активируем аккаунт
+        # Activate account
         success = await AuthService.activate_account(
             db=db,
             email=activation_data.email,
@@ -83,17 +83,17 @@ async def activate_account(
         )
         
         if success:
-            # Отправляем приветственный email
+            # Send welcome email
             await email_service.send_welcome_email(activation_data.email)
             
             return MessageResponse(
-                message="Аккаунт успешно активирован! Теперь вы можете войти в систему.",
+                message="Account successfully activated! You can now log in to the system.",
                 success=True
             )
         else:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Ошибка при активации аккаунта"
+                detail="Error activating account"
             )
             
     except HTTPException:
@@ -102,7 +102,7 @@ async def activate_account(
         logger.error(f"Activation error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка при активации аккаунта"
+            detail="Error activating account"
         )
 
 
@@ -112,18 +112,18 @@ async def resend_activation_code(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Повторная отправка кода активации
+    Resend activation code
     
-    - **email**: Email пользователя
+    - **email**: User email
     """
     try:
-        # Генерируем новый код активации
+        # Generate new activation code
         new_code = await AuthService.resend_activation_code(
             db=db,
             email=resend_data.email
         )
         
-        # Отправляем новый код
+        # Send new code
         email_sent = await email_service.send_activation_email(
             email=resend_data.email,
             activation_code=new_code
@@ -131,13 +131,13 @@ async def resend_activation_code(
         
         if email_sent:
             return MessageResponse(
-                message="Новый код активации отправлен на ваш email.",
+                message="New activation code sent to your email.",
                 success=True
             )
         else:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Ошибка при отправке email"
+                detail="Error sending email"
             )
             
     except HTTPException:
@@ -146,7 +146,7 @@ async def resend_activation_code(
         logger.error(f"Resend activation error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка при отправке кода активации"
+            detail="Error sending activation code"
         )
 
 
@@ -156,15 +156,15 @@ async def login_user(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Вход в систему
+    Login to system
     
-    - **email**: Email пользователя
-    - **password**: Пароль
+    - **email**: User email
+    - **password**: Password
     
-    Возвращает access token и refresh token
+    Returns access token and refresh token
     """
     try:
-        # Выполняем вход
+        # Perform login
         token_data = await AuthService.login_user(
             db=db,
             email=user_data.email,
@@ -179,7 +179,7 @@ async def login_user(
         logger.error(f"Login error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка при входе в систему"
+            detail="Error logging in to system"
         )
 
 
@@ -189,14 +189,14 @@ async def refresh_token(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Обновить access token используя refresh token
+    Refresh access token using refresh token
     
     - **refresh_token**: JWT refresh token
     
-    Возвращает новый access token
+    Returns new access token
     """
     try:
-        # Обновляем access token
+        # Refresh access token
         token_data = await AuthService.refresh_access_token(
             db=db,
             refresh_token=refresh_data.refresh_token
@@ -210,7 +210,7 @@ async def refresh_token(
         logger.error(f"Token refresh error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка при обновлении токена"
+            detail="Error refreshing token"
         )
 
 
@@ -219,9 +219,9 @@ async def get_current_user_info(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Получить информацию о текущем пользователе
+    Get current user information
     
-    Требует авторизации
+    Requires authorization
     """
     return UserResponse(
         id=current_user.id,
@@ -237,20 +237,20 @@ async def logout_user(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Выход из системы
+    Logout from system
     
-    Инвалидирует refresh token пользователя
+    Invalidates user's refresh token
     """
     try:
         await AuthService.logout_user(db=db, user_id=current_user.id)
         
         return MessageResponse(
-            message="Выход выполнен успешно",
+            message="Logout successful",
             success=True
         )
     except Exception as e:
         logger.error(f"Logout error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Ошибка при выходе из системы"
+            detail="Error logging out from system"
         )

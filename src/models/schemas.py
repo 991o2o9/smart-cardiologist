@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional
+from typing import Optional, List
 
 
 class CardioRequest(BaseModel):
@@ -88,3 +88,33 @@ class HeartPredictionResponse(BaseModel):
             }
         }
     )
+
+
+class MedicalChatMessage(BaseModel):
+    role: str = Field(..., description="user or assistant")
+    content: str = Field(..., description="Message text")
+
+class MedicalChatRequest(BaseModel):
+    messages: List[MedicalChatMessage] = Field(..., description="Chat history (user and assistant messages)")
+
+class MedicalChatResponse(BaseModel):
+    response: str = Field(..., description="AI assistant reply")
+
+
+class CardioChatMessage(BaseModel):
+    role: str
+    content: str
+    timestamp: Optional[str] = None
+
+class CardioChatSummary(BaseModel):
+    id: int
+    summary: str
+    created_at: str
+    updated_at: str
+
+class CardioChatDetail(BaseModel):
+    id: int
+    messages: List[CardioChatMessage]
+    summary: str
+    created_at: str
+    updated_at: str

@@ -1,12 +1,12 @@
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
 from typing import Optional
 from datetime import datetime
 
 
 class UserRegister(BaseModel):
-    """Схема регистрации пользователя"""
-    email: EmailStr = Field(..., description="Email пользователя")
-    password: str = Field(..., min_length=8, description="Пароль (минимум 8 символов)")
+    """User registration schema"""
+    email: EmailStr = Field(..., description="User email")
+    password: str = Field(..., min_length=8, description="Password (minimum 8 characters)")
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -19,9 +19,9 @@ class UserRegister(BaseModel):
 
 
 class UserLogin(BaseModel):
-    """Схема входа пользователя"""
-    email: EmailStr = Field(..., description="Email пользователя")
-    password: str = Field(..., description="Пароль")
+    """User login schema"""
+    email: EmailStr = Field(..., description="User email")
+    password: str = Field(..., description="Password")
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -34,9 +34,9 @@ class UserLogin(BaseModel):
 
 
 class ActivationCode(BaseModel):
-    """Схема активации аккаунта"""
-    email: EmailStr = Field(..., description="Email пользователя")
-    activation_code: str = Field(..., min_length=6, max_length=6, description="6-значный код активации")
+    """Account activation schema"""
+    email: EmailStr = Field(..., description="User email")
+    activation_code: str = Field(..., min_length=6, max_length=6, description="6-digit activation code")
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -49,8 +49,8 @@ class ActivationCode(BaseModel):
 
 
 class ResendActivation(BaseModel):
-    """Схема повторной отправки кода активации"""
-    email: EmailStr = Field(..., description="Email пользователя")
+    """Resend activation code schema"""
+    email: EmailStr = Field(..., description="User email")
     
     model_config = ConfigDict(
         json_schema_extra={
@@ -62,16 +62,16 @@ class ResendActivation(BaseModel):
 
 
 class Token(BaseModel):
-    """Схема JWT токена"""
+    """JWT token schema"""
     access_token: str = Field(..., description="JWT access token")
     refresh_token: str = Field(..., description="JWT refresh token")
-    token_type: str = Field(default="bearer", description="Тип токена")
-    expires_in: int = Field(..., description="Время жизни access token в минутах")
-    refresh_expires_in: int = Field(..., description="Время жизни refresh token в днях")
+    token_type: str = Field(default="bearer", description="Token type")
+    expires_in: int = Field(..., description="Access token lifetime in minutes")
+    refresh_expires_in: int = Field(..., description="Refresh token lifetime in days")
 
 
 class RefreshToken(BaseModel):
-    """Схема для обновления токена"""
+    """Token refresh schema"""
     refresh_token: str = Field(..., description="JWT refresh token")
     
     model_config = ConfigDict(
@@ -84,22 +84,22 @@ class RefreshToken(BaseModel):
 
 
 class TokenData(BaseModel):
-    """Схема данных токена"""
+    """Token data schema"""
     email: Optional[str] = None
     user_id: Optional[int] = None
 
 
 class UserResponse(BaseModel):
-    """Схема ответа с данными пользователя"""
-    id: int = Field(..., description="ID пользователя")
-    email: str = Field(..., description="Email пользователя")
-    is_activated: bool = Field(..., description="Статус активации")
-    created_at: datetime = Field(..., description="Дата создания")
+    """User data response schema"""
+    id: int = Field(..., description="User ID")
+    email: str = Field(..., description="User email")
+    is_activated: bool = Field(..., description="Activation status")
+    created_at: datetime = Field(..., description="Creation date")
     
     model_config = ConfigDict(from_attributes=True)
 
 
 class MessageResponse(BaseModel):
-    """Схема ответа с сообщением"""
-    message: str = Field(..., description="Сообщение")
-    success: bool = Field(..., description="Успешность операции")
+    """Message response schema"""
+    message: str = Field(..., description="Message")
+    success: bool = Field(..., description="Operation success")

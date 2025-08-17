@@ -10,7 +10,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Схема безопасности для JWT токенов
+# Security scheme for JWT tokens
 security = HTTPBearer()
 
 
@@ -19,29 +19,29 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db)
 ) -> User:
     """
-    Получить текущего пользователя по JWT токену
+    Get current user by JWT token
     
     Args:
-        credentials: JWT токен из заголовка Authorization
-        db: Сессия базы данных
+        credentials: JWT token from Authorization header
+        db: Database session
         
     Returns:
-        User: Объект пользователя
+        User: User object
         
     Raises:
-        HTTPException: Если токен недействителен или пользователь не найден
+        HTTPException: If token is invalid or user not found
     """
     try:
-        # Проверяем токен
+        # Verify token
         token_data = AuthService.verify_token(credentials.credentials)
         if token_data is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Недействительный токен авторизации",
+                detail="Invalid authorization token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        # Получаем пользователя из базы данных
+        # Get user from database
         user = await db.execute(
             select(User).where(User.id == token_data.user_id)
         )
@@ -50,15 +50,15 @@ async def get_current_user(
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Пользователь не найден",
+                detail="User not found",
                 headers={"WWW-Authenticate": "Bearer"},
             )
         
-        # Проверяем, что аккаунт активирован
+        # Check if account is activated
         if not user.is_activated:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Аккаунт не активирован"
+                detail="Account not activated"
             )
         
         return user
@@ -69,36 +69,36 @@ async def get_current_user(
         logger.error(f"Error in get_current_user: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Ошибка авторизации",
+            detail="Authorization error",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
     """
-    Получить текущего активного пользователя
+    Get current active user
     
     Args:
-        current_user: Текущий пользователь
+        current_user: Current user
         
     Returns:
-        User: Активный пользователь
+        User: Active user
     """
-    # Дополнительные проверки можно добавить здесь
-    # Например, проверка на блокировку аккаунта
+    # Additional checks can be added here
+    # For example, account blocking check
     return current_user
 
 
 def require_auth(func):
     """
-    Декоратор для маршрутов, требующих авторизации
+    Decorator for routes requiring authorization
     
     Args:
-        func: Функция маршрута
+        func: Route function
         
     Returns:
-        Функция с зависимостью авторизации
+        Function with authorization dependency
     """
-    # Этот декоратор можно использовать для дополнительной логики
-    # В FastAPI авторизация обычно проверяется через Depends(get_current_user)
+    # This decorator can be used for additional logic
+    # In FastAPI, authorization is usually checked via Depends(get_current_user)
     return func

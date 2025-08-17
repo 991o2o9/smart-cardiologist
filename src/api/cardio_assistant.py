@@ -1,258 +1,212 @@
-from fastapi import APIRouter, Request, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from src.models.schemas import CardioRequest, CardioResponse
-from src.models.database import User, CardioAnalysis
+from src.models.schemas import MedicalChatRequest, MedicalChatResponse, MedicalChatMessage
+from src.models.database import User, CardioAnalysis, HeartPrediction, CardioChat
 from src.services.ai_service import AIService
 from src.services.database import get_db
 from src.services.encryption_service import encryption_service
-from src.utils.cache import cache
-from src.utils.rate_limiter import rate_limiter
 from src.utils.auth_middleware import get_current_user
-import hashlib
-import json
 import logging
+import datetime
+from src.models.schemas import CardioChatSummary, CardioChatDetail, CardioChatMessage as ChatMsgSchema
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/cardio-assistant", tags=["Cardio Assistant"])
-
-# Инициализация сервисов
 ai_service = AIService()
 
+# Utility: get user profile (expand as needed)
+def get_user_profile(user: User):
+    return {
+        "email": user.email,
+        # add more fields if needed
+    }
 
-def create_cache_key(data: dict) -> str:
-    """Создать ключ кеша из данных запроса"""
-    # Сортируем ключи для консистентности
-    sorted_data = dict(sorted(data.items()))
-    data_str = json.dumps(sorted_data, sort_keys=True)
-    return hashlib.md5(data_str.encode()).hexdigest()
+# Utility: get last N analyses and predictions
+async def get_recent_medical_data(user_id, db, n=3):
+    # CardioAnalysis
+    analyses = []
+    result = await db.execute(
+        select(CardioAnalysis)
+        .where(CardioAnalysis.user_id == user_id)
+        .order_by(CardioAnalysis.created_at.desc())
+        .limit(n)
+    )
+    for a in result.scalars().all():
+        decrypted = encryption_service.decrypt_medical_data({
+            'age': a.age,
+            'pulse': a.pulse,
+            'risk': a.risk,
+            'symptoms': a.symptoms
+        })
+        analyses.append(decrypted)
+    # HeartPrediction
+    predictions = []
+    result2 = await db.execute(
+        select(HeartPrediction)
+        .where(HeartPrediction.user_id == user_id)
+        .order_by(HeartPrediction.created_at.desc())
+        .limit(n)
+    )
+    for p in result2.scalars().all():
+        decrypted = encryption_service.decrypt_medical_data({
+            'age': p.age,
+            'sex': p.sex,
+            'cp': p.cp,
+            'trestbps': p.trestbps,
+            'chol': p.chol,
+            'fbs': p.fbs,
+            'restecg': p.restecg,
+            'thalach': p.thalach,
+            'exang': p.exang,
+            'oldpeak': p.oldpeak,
+            'slope': p.slope,
+            'ca': p.ca,
+            'thal': p.thal,
+            'pulse': p.pulse,
+            'risk_prediction': p.risk_prediction,
+            'probability': p.probability
+        })
+        predictions.append(decrypted)
+    return analyses, predictions
 
+# Utility: check if question is medical (simple filter)
+def is_medical_question(messages):
+    medical_keywords = [
+        # English terms
+        'heart', 'cardio', 'pulse', 'pressure', 'blood', 'medicine', 'symptom', 'treatment',
+        'cardiologist', 'pain', 'breath', 'hypertension', 'cholesterol', 'risk', 'disease',
+        'doctor', 'health', 'diagnosis', 'therapy', 'analysis', 'test', 'ECG', 'blood test',
+        'medication', 'recommendation', 'lifestyle', 'exercise', 'diet', 'weight', 'stress',
+        'cardiology', 'arrhythmia', 'ischemia', 'myocardial', 'stroke', 'attack', 'artery',
+        'vein', 'surgery', 'operation', 'consultation', 'symptoms', 'treatment', 'medications',
+        'chest', 'shortness', 'fatigue', 'palpitation', 'fainting', 'swelling', 'blood sugar',
+        'diabetes', 'smoking', 'alcohol', 'family history', 'prevention', 'screening',
+        # Russian terms
+        'сердце', 'кардио', 'пульс', 'давление', 'кровь', 'лекарств', 'симптом', 'лечение',
+        'кардиолог', 'боль', 'дыхание', 'гипертони', 'холестерин', 'риск', 'болезн', 'врач',
+        'здоровье', 'диагноз', 'терапия', 'анализ', 'тест', 'экг', 'медикамент', 'рекомендац',
+        'образ жизни', 'нагрузка', 'диета', 'вес', 'стресс', 'аритмия', 'ишемия', 'инфаркт',
+        'инсульт', 'артерия', 'вена', 'операция', 'консультация', 'симптомы', 'грудь',
+        'одышка', 'усталость', 'сердцебиение', 'обморок', 'отеки', 'сахар', 'диабет',
+        'курение', 'алкоголь', 'наследственность', 'профилактика', 'скрининг',
+        # General complaints
+        'температура', 'кашель', 'простуда', 'ОРВИ', 'ОРЗ', 'жар', 'головная боль',
+        'головокружение', 'тошнота', 'рвота', 'бессонница', 'сон', 'аппетит', 'бессилие',
+        'потливость', 'озноб', 'ломота', 'боли в спине', 'боли в ногах', 'боли в руках',
+        'тяжесть', 'жжение', 'покалывание', 'покраснение', 'сыпь', 'зуд', 'аллергия',
+        'иммунитет', 'температура тела', 'потеря сознания', 'слабость', 'усталость',
+        'боли в животе', 'понос', 'запор', 'метеоризм', 'изжога', 'отрыжка', 'рвота',
+        'боли в пояснице', 'боли в груди', 'боли при дыхании', 'боли при движении',
+        'боли при нагрузке', 'боли после еды', 'боли ночью', 'боли утром', 'боли вечером',
+        'боли при ходьбе', 'боли при беге', 'боли при наклоне', 'боли при повороте',
+        'боли при кашле', 'боли при чихании', 'боли при глотании', 'боли при разговоре',
+        'боли при смехе', 'боли при плаче', 'боли при стрессе', 'боли при волнении',
+        'боли при отдыхе', 'боли при работе', 'боли при спорте', 'боли при физической нагрузке'
+    ]
+    last_user_message = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), None)
+    if not last_user_message:
+        return False
+    return any(word in last_user_message.lower() for word in medical_keywords)
 
-@router.post("/", response_model=CardioResponse)
-async def get_cardio_analysis(
-    request: CardioRequest, 
-    req: Request,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+# Utility: build prompt for AI
+def build_medical_prompt(user_profile, analyses, predictions, messages):
+    prompt = (
+        "You are an experienced cardiologist. Answer only medical questions related to cardiology, heart health, lifestyle, medications, and test results. "
+        "Do not answer non-medical questions. If the question is not about medicine, politely refuse to answer.\n\n"
+        f"User profile: {user_profile}\n"
+        f"Recent analyses: {analyses}\n"
+        f"Recent predictions: {predictions}\n"
+        f"Chat history: {messages}\n"
+        "Give a detailed, clear, and personalized answer. If needed, recommend seeing a doctor in person."
+    )
+    return prompt
+
+@router.post("/", response_model=MedicalChatResponse)
+async def medical_chat(
+    data: MedicalChatRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
-    """
-    Получить анализ от AI кардиолога
-    
-    Требует авторизации.
-    
-    - **age**: Возраст пациента (0-120)
-    - **pulse**: Пульс в минуту (40-200)
-    - **risk**: Уровень риска (низкий/средний/высокий)
-    - **symptoms**: Описание симптомов
-    """
-    ip = req.client.host
-    
-    # Проверка rate limiting
-    if not rate_limiter.is_allowed(ip):
-        raise HTTPException(
-            status_code=429, 
-            detail="Слишком много запросов. Попробуйте позже."
-        )
-    
-    # Создаем ключ кеша
-    cache_key = create_cache_key(request.model_dump())
-    
-    # Проверяем кеш
-    cached_response = cache.get(cache_key)
-    if cached_response:
-        # Шифруем данные перед сохранением
-        encrypted_data = encryption_service.encrypt_medical_data({
-            'age': request.age,
-            'pulse': request.pulse,
-            'risk': request.risk,
-            'symptoms': request.symptoms,
-            'ai_response': cached_response
-        })
-        
-        # Сохраняем в базу данных как кешированный ответ
-        analysis = CardioAnalysis(
-            user_id=current_user.id,
-            age=encrypted_data['age'],
-            pulse=encrypted_data['pulse'],
-            risk=encrypted_data['risk'],
-            symptoms=encrypted_data['symptoms'],
-            ai_response=encrypted_data['ai_response'],
-            cached=True
-        )
-        db.add(analysis)
-        await db.commit()
-        
-        return CardioResponse(cached=True, response=cached_response)
-    
+    # 1. Check topic
+    if not is_medical_question([m.dict() for m in data.messages]):
+        return MedicalChatResponse(response="I can only answer medical questions related to cardiology and health.")
+
+    # 2. Get user profile
+    user_profile = get_user_profile(current_user)
+
+    # 3. Get recent analyses and predictions
+    analyses, predictions = await get_recent_medical_data(current_user.id, db)
+
+    # 4. Build prompt
+    prompt = build_medical_prompt(user_profile, analyses, predictions, [m.dict() for m in data.messages])
+
+    # 5. Get AI response
     try:
-        # Получаем анализ от AI
         ai_response = ai_service.get_cardio_analysis(
-            age=request.age,
-            pulse=request.pulse,
-            risk=request.risk,
-            symptoms=request.symptoms
+            age=None, pulse=None, risk=None, symptoms=prompt  # prompt instead of symptoms
         )
-        
-        # Сохраняем в кеш
-        cache.set(cache_key, ai_response)
-        
-        # Шифруем данные перед сохранением
-        encrypted_data = encryption_service.encrypt_medical_data({
-            'age': request.age,
-            'pulse': request.pulse,
-            'risk': request.risk,
-            'symptoms': request.symptoms,
-            'ai_response': ai_response
-        })
-        
-        # Сохраняем в базу данных
-        analysis = CardioAnalysis(
-            user_id=current_user.id,
-            age=encrypted_data['age'],
-            pulse=encrypted_data['pulse'],
-            risk=encrypted_data['risk'],
-            symptoms=encrypted_data['symptoms'],
-            ai_response=encrypted_data['ai_response'],
-            cached=False
-        )
-        db.add(analysis)
-        await db.commit()
-        
-        logger.info(f"Cardio analysis saved for user {current_user.id}")
-        
-        return CardioResponse(cached=False, response=ai_response)
-        
     except Exception as e:
         logger.error(f"AI service error: {e}")
-        raise HTTPException(status_code=500, detail=f"Ошибка AI сервиса: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
 
+    # 6. Save chat to CardioChat
+    now = datetime.datetime.utcnow().isoformat() + "Z"
+    chat_messages = [m.dict() for m in data.messages]
+    chat_messages.append({"role": "assistant", "content": ai_response, "timestamp": now})
+    summary = chat_messages[0]["content"][:100] if chat_messages else ""
+    new_chat = CardioChat(
+        user_id=current_user.id,
+        messages=chat_messages,
+        summary=summary
+    )
+    db.add(new_chat)
+    await db.commit()
+    return MedicalChatResponse(response=ai_response)
 
-@router.get("/history", response_model=list[dict])
-async def get_analysis_history(
+@router.get("/history", response_model=list[CardioChatSummary])
+async def get_chat_history(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     limit: int = 10,
     offset: int = 0
 ):
-    """
-    Получить историю анализов пользователя
-    
-    Требует авторизации.
-    
-    - **limit**: Количество записей (по умолчанию 10)
-    - **offset**: Смещение (по умолчанию 0)
-    """
-    try:
-        # Получаем историю анализов
-        result = await db.execute(
-            select(CardioAnalysis)
-            .where(CardioAnalysis.user_id == current_user.id)
-            .order_by(CardioAnalysis.created_at.desc())
-            .limit(limit)
-            .offset(offset)
-        )
-        
-        analyses = result.scalars().all()
-        
-        # Формируем ответ с расшифровкой данных
-        history = []
-        for analysis in analyses:
-            # Расшифровываем данные
-            decrypted_data = encryption_service.decrypt_medical_data({
-                'age': analysis.age,
-                'pulse': analysis.pulse,
-                'risk': analysis.risk,
-                'symptoms': analysis.symptoms
-            })
-            
-            history.append({
-                "id": analysis.id,
-                "age": decrypted_data['age'],
-                "pulse": decrypted_data['pulse'],
-                "risk": decrypted_data['risk'],
-                "symptoms": decrypted_data['symptoms'],
-                "cached": analysis.cached,
-                "created_at": analysis.created_at.isoformat()
-            })
-        
-        return history
-        
-    except Exception as e:
-        logger.error(f"Error getting analysis history: {e}")
-        raise HTTPException(
-            status_code=500, 
-            detail="Ошибка при получении истории анализов"
-        )
+    result = await db.execute(
+        select(CardioChat)
+        .where(CardioChat.user_id == current_user.id)
+        .order_by(CardioChat.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
+    chats = result.scalars().all()
+    return [
+        CardioChatSummary(
+            id=chat.id,
+            summary=chat.summary,
+            created_at=chat.created_at.isoformat() + "Z",
+            updated_at=chat.updated_at.isoformat() + "Z"
+        ) for chat in chats
+    ]
 
-
-@router.get("/history/{analysis_id}")
-async def get_analysis_details(
-    analysis_id: int,
+@router.get("/history/{chat_id}", response_model=CardioChatDetail)
+async def get_chat_detail(
+    chat_id: int,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """
-    Получить детали конкретного анализа
-    
-    Требует авторизации.
-    
-    - **analysis_id**: ID анализа
-    """
-    try:
-        # Получаем анализ
-        result = await db.execute(
-            select(CardioAnalysis)
-            .where(
-                CardioAnalysis.id == analysis_id,
-                CardioAnalysis.user_id == current_user.id
-            )
-        )
-        
-        analysis = result.scalar_one_or_none()
-        
-        if not analysis:
-            raise HTTPException(
-                status_code=404,
-                detail="Анализ не найден"
-            )
-        
-        # Расшифровываем данные
-        decrypted_data = encryption_service.decrypt_medical_data({
-            'age': analysis.age,
-            'pulse': analysis.pulse,
-            'risk': analysis.risk,
-            'symptoms': analysis.symptoms,
-            'ai_response': analysis.ai_response
-        })
-        
-        return {
-            "id": analysis.id,
-            "age": decrypted_data['age'],
-            "pulse": decrypted_data['pulse'],
-            "risk": decrypted_data['risk'],
-            "symptoms": decrypted_data['symptoms'],
-            "ai_response": decrypted_data['ai_response'],
-            "cached": analysis.cached,
-            "created_at": analysis.created_at.isoformat()
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error getting analysis details: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Ошибка при получении деталей анализа"
-        )
-
-
-@router.get("/health")
-async def health_check():
-    """Проверка здоровья сервиса"""
-    return {
-        "status": "healthy",
-        "ai_service": ai_service.is_healthy(),
-        "cache_stats": cache.get_stats(),
-        "rate_limiter_stats": rate_limiter.get_stats()
-    }
+    result = await db.execute(
+        select(CardioChat)
+        .where(CardioChat.id == chat_id, CardioChat.user_id == current_user.id)
+    )
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    messages = [ChatMsgSchema(**msg) for msg in chat.messages]
+    return CardioChatDetail(
+        id=chat.id,
+        messages=messages,
+        summary=chat.summary,
+        created_at=chat.created_at.isoformat() + "Z",
+        updated_at=chat.updated_at.isoformat() + "Z"
+    )

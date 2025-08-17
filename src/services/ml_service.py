@@ -1,6 +1,3 @@
-"""
-Сервис для работы с ML моделью
-"""
 import os
 import joblib
 import pandas as pd
@@ -11,7 +8,7 @@ from config.settings import settings
 load_dotenv()
 
 class MLService:
-    """Сервис для работы с ML моделью предсказания риска"""
+    """Service for working with ML risk prediction model"""
     
     def __init__(self, model_path: str = None):
         if model_path is None:
@@ -23,46 +20,46 @@ class MLService:
         try:
             self.load_model()
         except Exception as e:
-            print(f"⚠️  Предупреждение: Не удалось загрузить модель: {e}")
-            print("💡 Запустите: python scripts/train_model.py")
+            print(f"⚠️  Warning: Failed to load model: {e}")
+            print("💡 Run: python scripts/train_model.py")
     
     def load_model(self) -> None:
-        """Загрузить модель из файла"""
+        """Load model from file"""
         try:
             if not os.path.exists(self.model_path):
-                raise FileNotFoundError(f"Файл модели не найден: {self.model_path}")
+                raise FileNotFoundError(f"Model file not found: {self.model_path}")
             
             artifact = joblib.load(self.model_path)
             self.model = artifact["model"]
             self.columns = artifact["columns"]
             
         except Exception as e:
-            raise Exception(f"Ошибка при загрузке модели: {str(e)}")
+            raise Exception(f"Error loading model: {str(e)}")
     
     def predict_heart_risk(self, data: Dict[str, Any]) -> Tuple[int, float]:
         """
-        Предсказать риск сердечных заболеваний
+        Predict heart disease risk
         
         Args:
-            data: Словарь с данными пациента
+            data: Dictionary with patient data
             
         Returns:
-            Tuple[int, float]: (риск, вероятность)
+            Tuple[int, float]: (risk, probability)
         """
         try:
-            # Создаем DataFrame
+            # Create DataFrame
             df = pd.DataFrame([data])
             
             # One-hot encoding
             df = pd.get_dummies(df)
             
-            # Приводим к нужным колонкам
+            # Align with required columns
             df = df.reindex(columns=self.columns, fill_value=0)
             
-            # Предсказание
+            # Prediction
             prediction = self.model.predict(df)[0]
             
-            # Вероятность
+            # Probability
             if hasattr(self.model, "predict_proba"):
                 probability = float(self.model.predict_proba(df)[:, 1][0])
             else:
@@ -71,14 +68,14 @@ class MLService:
             return int(prediction), round(probability, 4)
             
         except Exception as e:
-            raise Exception(f"Ошибка при предсказании: {str(e)}")
+            raise Exception(f"Error during prediction: {str(e)}")
     
     def get_feature_importance(self) -> Dict[str, float]:
         """
-        Получить важность признаков
+        Get feature importance
         
         Returns:
-            Dict[str, float]: Словарь с важностью признаков
+            Dict[str, float]: Dictionary with feature importance
         """
         try:
             if hasattr(self.model, "feature_importances_"):
@@ -89,14 +86,14 @@ class MLService:
             else:
                 return {}
         except Exception as e:
-            raise Exception(f"Ошибка при получении важности признаков: {str(e)}")
+            raise Exception(f"Error getting feature importance: {str(e)}")
     
     def is_healthy(self) -> bool:
         """
-        Проверить работоспособность модели
+        Check model health
         
         Returns:
-            bool: True если модель работает
+            bool: True if model is working
         """
         try:
             return (self.model is not None and 
@@ -107,10 +104,10 @@ class MLService:
     
     def get_model_info(self) -> Dict[str, Any]:
         """
-        Получить информацию о модели
+        Get model information
         
         Returns:
-            Dict[str, Any]: Информация о модели
+            Dict[str, Any]: Model information
         """
         return {
             "model_path": self.model_path,

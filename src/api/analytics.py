@@ -37,9 +37,9 @@ def calc_trend(first, last):
         return "stable"
 
 
-@router.get("/", summary="Аналитика по анализам пользователя")
+@router.get("/", summary="User analysis analytics")
 async def get_analytics(
-    period: str = Query(..., regex="^(week|month)$", description="Период: week или month"),
+    period: str = Query(..., regex="^(week|month)$", description="Period: week or month"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -51,7 +51,7 @@ async def get_analytics(
     else:
         since = now - timedelta(days=30)
 
-    # Получаем анализы пользователя за период
+    # Get user analyses for the period
     result = await db.execute(
         select(HeartPrediction)
         .where(and_(HeartPrediction.user_id == user_id, HeartPrediction.created_at >= since))
@@ -59,9 +59,9 @@ async def get_analytics(
     )
     records = result.scalars().all()
     if not records:
-        raise HTTPException(status_code=404, detail="Нет данных за выбранный период")
+        raise HTTPException(status_code=404, detail="No data for selected period")
 
-    # Расшифровываем и собираем данные
+    # Decrypt and collect data
     risks, pulses, systolics, created_ats = [], [], [], []
     for rec in records:
         decrypted = encryption_service.decrypt_medical_data({
@@ -87,12 +87,12 @@ async def get_analytics(
         arr = [x for x in arr if x is not None]
         return max(arr) if arr else None
 
-    # Тренды: сравниваем первый и последний значения
+    # Trends: compare first and last values
     risk_trend = calc_trend(risks[0], risks[-1])
     pulse_trend = calc_trend(pulses[0], pulses[-1])
     systolic_trend = calc_trend(systolics[0], systolics[-1])
 
-    # Формируем ответ
+    # Form response
     response = {
         "user_id": user_id,
         "period": period,
