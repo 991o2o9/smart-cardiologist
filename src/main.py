@@ -82,7 +82,7 @@ app.include_router(analytics_router)
 async def root():
     """Root endpoint"""
     return {
-        "message": "Welcome to Smart Cardiologist API",
+        "message": "Smart Cardiologist API",
         "version": "1.0.0",
         "docs": "/docs",
         "health": "/health"

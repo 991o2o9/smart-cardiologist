@@ -7,11 +7,13 @@ from src.services.auth_service import AuthService
 from src.models.database import User
 from src.models.auth_schemas import TokenData
 import logging
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
 # Security scheme for JWT tokens
 security = HTTPBearer()
+security_optional = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
@@ -102,3 +104,38 @@ def require_auth(func):
     # This decorator can be used for additional logic
     # In FastAPI, authorization is usually checked via Depends(get_current_user)
     return func
+
+
+async def get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
+    db: AsyncSession = Depends(get_db)
+) -> Optional[User]:
+    """
+    Optionally get current user by JWT token.
+
+    If no credentials are provided or token is invalid, returns None instead of raising.
+    Useful for endpoints that allow guest access but personalize/record data when authorized.
+    """
+    try:
+        if credentials is None:
+            return None
+
+        token_data: Optional[TokenData] = AuthService.verify_token(credentials.credentials)
+        if token_data is None:
+            logger.warning("Invalid authorization token provided for optional auth; proceeding as guest")
+            return None
+
+        result = await db.execute(select(User).where(User.id == token_data.user_id))
+        user = result.scalar_one_or_none()
+
+        if user is None:
+            return None
+
+        if not user.is_activated:
+            return None
+
+        return user
+
+    except Exception as e:
+        logger.error(f"Error in get_optional_user: {e}")
+        return None

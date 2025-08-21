@@ -466,3 +466,86 @@ curl http://localhost:8000/cardio-assistant/health | jq '.cache_stats'
 # Статистика rate limiting
 curl http://localhost:8000/cardio-assistant/health | jq '.rate_limiter_stats'
 ```
+
+## Authentication
+
+### Register User
+- **Endpoint**: `POST /auth/register`
+- **Description**: Register a new user account
+- **Body**:
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "securepassword123"
+  }
+  ```
+
+### Activate Account
+- **Endpoint**: `POST /auth/activate`
+- **Description**: Activate account using activation code
+- **Body**:
+  ```json
+  {
+    "email": "user@example.com",
+    "activation_code": "123456"
+  }
+  ```
+
+### Check Email Status
+- **Endpoint**: `GET /auth/status?email=user@example.com`
+- **Description**: Check if email exists and is activated
+- **Query Parameters**:
+  - `email`: Valid email address to check
+- **Response**:
+  ```json
+  {
+    "email": "user@example.com",
+    "is_activated": false,
+    "exists": true
+  }
+  ```
+- **Notes**: 
+  - `exists`: Whether user with this email exists in system
+  - `is_activated`: Whether account is activated
+  - Email parameter must be in valid email format
+
+### Resend Activation Code
+- **Endpoint**: `POST /auth/resend-activation`
+- **Description**: Resend activation code to email
+- **Body**:
+  ```json
+  {
+    "email": "user@example.com"
+  }
+  ```
+
+### Login
+- **Endpoint**: `POST /auth/login`
+- **Description**: Login to system
+- **Body**:
+  ```json
+  {
+    "email": "user@example.com",
+    "password": "securepassword123"
+  }
+  ```
+
+### Refresh Token
+- **Endpoint**: `POST /auth/refresh`
+- **Description**: Refresh access token using refresh token
+- **Body**:
+  ```json
+  {
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  }
+  ```
+
+### Get Current User Info
+- **Endpoint**: `GET /auth/me`
+- **Description**: Get current authenticated user information
+- **Headers**: `Authorization: Bearer <access_token>`
+
+### Logout
+- **Endpoint**: `POST /auth/logout`
+- **Description**: Logout from system (invalidate refresh token)
+- **Headers**: `Authorization: Bearer <access_token>`

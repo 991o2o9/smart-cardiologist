@@ -37,21 +37,24 @@ class CardioResponse(BaseModel):
 
 
 class HeartData(BaseModel):
-    """Схема данных для предсказания риска сердечных заболеваний"""
-    age: int = Field(..., ge=0, le=120)
-    sex: int = Field(..., ge=0, le=1)
-    cp: int = Field(..., ge=0, le=3)
-    trestbps: int = Field(..., ge=90, le=200)
-    chol: int = Field(..., ge=100, le=600)
-    fbs: int = Field(..., ge=0, le=1)
-    restecg: int = Field(..., ge=0, le=2)
-    thalach: int = Field(..., ge=70, le=200)
-    exang: int = Field(..., ge=0, le=1)
-    oldpeak: float = Field(..., ge=0.0, le=6.0)
-    slope: int = Field(..., ge=0, le=2)
-    ca: int = Field(..., ge=0, le=4)
-    thal: int = Field(..., ge=0, le=3)
-    pulse: int = Field(..., ge=40, le=200)
+    """Схема данных для предсказания риска сердечных заболеваний
+    Все поля являются необязательными. Отсутствующие значения будут автоматически
+    заполнены средними значениями из обучающего датасета.
+    """
+    age: Optional[int] = Field(None, ge=0, le=120)
+    sex: Optional[int] = Field(None, ge=0, le=1)
+    cp: Optional[int] = Field(None, ge=0, le=3)
+    trestbps: Optional[int] = Field(None, ge=90, le=200)
+    chol: Optional[int] = Field(None, ge=100, le=600)
+    fbs: Optional[int] = Field(None, ge=0, le=1)
+    restecg: Optional[int] = Field(None, ge=0, le=2)
+    thalach: Optional[int] = Field(None, ge=70, le=200)
+    exang: Optional[int] = Field(None, ge=0, le=1)
+    oldpeak: Optional[float] = Field(None, ge=0.0, le=6.0)
+    slope: Optional[int] = Field(None, ge=0, le=2)
+    ca: Optional[int] = Field(None, ge=0, le=4)
+    thal: Optional[int] = Field(None, ge=0, le=3)
+    pulse: Optional[int] = Field(None, ge=40, le=200)
 
     model_config = ConfigDict(
         json_schema_extra={
@@ -79,12 +82,16 @@ class HeartPredictionResponse(BaseModel):
     """Схема ответа для предсказания риска"""
     risk: int = Field(..., ge=0, le=1, description="Риск (0 - низкий, 1 - высокий)")
     probability: float = Field(..., ge=0.0, le=1.0, description="Вероятность риска")
+    accuracy: str = Field(..., description="Оценка точности результата в процентах")
+    message: str = Field(..., description="Сообщение с пояснением точности")
 
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
                 "risk": 1,
-                "probability": 0.85
+                "probability": 0.85,
+                "accuracy": "60%",
+                "message": "Ваш результат точен примерно на 60%, так как часть данных была подставлена автоматически."
             }
         }
     )
@@ -118,3 +125,14 @@ class CardioChatDetail(BaseModel):
     summary: str
     created_at: str
     updated_at: str
+
+class ActiveChatResponse(BaseModel):
+    chat_id: int
+    messages: List[CardioChatMessage]
+    summary: str
+    created_at: str
+    updated_at: str
+
+class CreateChatResponse(BaseModel):
+    chat_id: int
+    message: str = "Новый чат создан"

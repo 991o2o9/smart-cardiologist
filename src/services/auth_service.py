@@ -353,3 +353,11 @@ class AuthService:
         
         logger.info(f"User logged out: {user_id}")
         return True
+
+    @classmethod
+    async def get_user_by_email(cls, db: AsyncSession, email: str) -> Optional[User]:
+        """Get user by email"""
+        result = await db.execute(
+            select(User).where(User.email == email)
+        )
+        return result.scalar_one_or_none()

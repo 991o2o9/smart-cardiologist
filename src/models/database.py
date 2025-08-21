@@ -21,11 +21,13 @@ class User(Base):
     activation_attempts = Column(Integer, default=0, nullable=False)
     refresh_token = Column(String(500), nullable=True)  # Добавляем refresh token
     refresh_token_expires = Column(DateTime, nullable=True)  # Время истечения refresh token
+    active_chat_id = Column(Integer, ForeignKey("cardio_chats.id"), nullable=True)  # ID активного чата
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
     
     # Связи
     analyses = relationship("CardioAnalysis", back_populates="user")
+    active_chat = relationship("CardioChat", foreign_keys=[active_chat_id])
 
 
 class CardioAnalysis(Base):
@@ -80,6 +82,7 @@ class CardioChat(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     messages = Column(JSONB, nullable=False)  # Список сообщений (chat history)
     summary = Column(Text, nullable=True)     # Краткое описание/первые сообщения
+    is_active = Column(Boolean, default=True, nullable=False)  # Активен ли чат
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
-    user = relationship("User")
+    user = relationship("User", foreign_keys=[user_id])

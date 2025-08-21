@@ -117,6 +117,18 @@ api-test: ## Протестировать API endpoints
 	@echo "Тестирование API..."
 	$(PYTHON) scripts/test_api.py
 
+# Команды для ML и фильтрации
+train-ml: ## Обучить ML-модель классификации медицинских вопросов
+	@echo "Обучение ML-модели..."
+	$(PYTHON) scripts/train_medical_classifier.py
+
+test-filter: ## Протестировать трёхуровневую систему фильтрации
+	@echo "Тестирование системы фильтрации..."
+	$(PYTHON) scripts/test_three_level_filter.py
+
+ml-setup: train-ml test-filter ## Настроить ML-систему (обучение + тестирование)
+	@echo "ML-система настроена!"
+
 # Команды для логирования
 logs: ## Показать логи приложения
 	@echo "Логи приложения (если настроено логирование в файлы)..."
@@ -148,6 +160,34 @@ deploy-check: ## Проверить готовность к развертыва
 	@echo "4. Проверка форматирования..."
 	$(MAKE) format-check
 	@echo "Все проверки пройдены успешно!"
+
+deploy-prepare: ## Подготовка к деплою (проверка всех компонентов)
+	@echo "Подготовка к деплою..."
+	$(PYTHON) scripts/deploy_setup.py
+
+docker-build: ## Собрать Docker образ
+	@echo "Сборка Docker образа..."
+	docker build -t smart-cardiologist .
+
+docker-run: ## Запустить приложение в Docker
+	@echo "Запуск приложения в Docker..."
+	docker-compose up -d
+
+docker-stop: ## Остановить Docker контейнеры
+	@echo "Остановка Docker контейнеров..."
+	docker-compose down
+
+docker-logs: ## Показать логи Docker контейнеров
+	@echo "Логи Docker контейнеров..."
+	docker-compose logs -f
+
+docker-clean: ## Очистить Docker контейнеры и образы
+	@echo "Очистка Docker..."
+	docker-compose down -v
+	docker system prune -f
+
+deploy-full: deploy-prepare docker-build docker-run ## Полный деплой
+	@echo "Деплой завершен! Приложение доступно на http://localhost:8000"
 
 # Справка по командам
 commands: ## Показать все доступные команды

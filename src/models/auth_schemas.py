@@ -99,6 +99,23 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class EmailStatusResponse(BaseModel):
+    """Email status response schema"""
+    email: str = Field(..., description="User email")
+    is_activated: bool = Field(..., description="Activation status")
+    exists: bool = Field(..., description="Whether user exists")
+    
+    model_config = ConfigDict(
+        json_schema_extra={
+            "example": {
+                "email": "user@example.com",
+                "is_activated": False,
+                "exists": True
+            }
+        }
+    )
+
+
 class MessageResponse(BaseModel):
     """Message response schema"""
     message: str = Field(..., description="Message")

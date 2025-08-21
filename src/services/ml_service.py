@@ -17,11 +17,18 @@ class MLService:
         self.model_path = model_path
         self.model = None
         self.columns = None
+        self.feature_means: Dict[str, Any] = {}
         try:
             self.load_model()
         except Exception as e:
             print(f"⚠️  Warning: Failed to load model: {e}")
             print("💡 Run: python scripts/train_model.py")
+        # Try to pre-load feature means, but don't fail if file is missing
+        try:
+            self._load_feature_means()
+        except Exception:
+            # Will compute lazily on first use
+            pass
     
     def load_model(self) -> None:
         """Load model from file"""
@@ -35,6 +42,91 @@ class MLService:
             
         except Exception as e:
             raise Exception(f"Error loading model: {str(e)}")
+    
+    def _load_feature_means(self) -> None:
+        """Load dataset and compute feature means for imputation.
+        Uses the same dataset path as training script.
+        """
+        # Default training data path
+        data_path = os.path.join("data", "raw", "heart.xls")
+        if not os.path.exists(data_path):
+            # Try .xlsx fallback
+            data_path_xlsx = os.path.join("data", "raw", "heart.xlsx")
+            if os.path.exists(data_path_xlsx):
+                data_path = data_path_xlsx
+            else:
+                raise FileNotFoundError("Training dataset not found for computing feature means.")
+        # Read dataset (Excel or CSV)
+        try:
+            if data_path.endswith(".xls"):
+                # xlrd is required for .xls
+                df = pd.read_excel(data_path, engine="xlrd")
+            elif data_path.endswith(".xlsx"):
+                df = pd.read_excel(data_path, engine="openpyxl")
+            else:
+                df = pd.read_csv(data_path)
+        except Exception:
+            # Fallback: if reading fails for any reason, use empty DataFrame to rely on defaults
+            df = pd.DataFrame()
+        # Remove rows with target missing if present
+        if "target" in df.columns:
+            df = df.dropna(subset=["target"])  # keep target but exclude NaN rows
+        # Expected input fields
+        expected_fields = [
+            "age", "sex", "cp", "trestbps", "chol", "fbs", "restecg",
+            "thalach", "exang", "oldpeak", "slope", "ca", "thal", "pulse"
+        ]
+        # Some datasets may not include pulse; handle gracefully
+        means: Dict[str, Any] = {}
+        for field in expected_fields:
+            if field in df.columns:
+                # For numeric columns, compute mean
+                value = df[field].astype(float).mean()
+                # Integer-coded fields should be rounded to nearest int
+                if field in {"sex", "cp", "fbs", "restecg", "exang", "slope", "ca", "thal", "pulse", "trestbps", "chol", "thalach", "age"}:
+                    # round and cast to int, guard NaN
+                    value = int(round(value)) if pd.notna(value) else 0
+                else:
+                    value = float(value) if pd.notna(value) else 0.0
+                means[field] = value
+        # Defaults if some fields were absent
+        defaults = {
+            "age": 54,
+            "sex": 1,
+            "cp": 0,
+            "trestbps": 130,
+            "chol": 246,
+            "fbs": 0,
+            "restecg": 0,
+            "thalach": 149,
+            "exang": 0,
+            "oldpeak": 1.0,
+            "slope": 1,
+            "ca": 0,
+            "thal": 2,
+            "pulse": 80,
+        }
+        for k, v in defaults.items():
+            means.setdefault(k, v)
+        self.feature_means = means
+    
+    def get_feature_means(self) -> Dict[str, Any]:
+        """Return cached feature means, computing if necessary."""
+        if not self.feature_means:
+            self._load_feature_means()
+        return self.feature_means
+    
+    def fill_missing_with_means(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """Fill missing input fields with dataset means.
+        Does not modify provided fields.
+        """
+        means = self.get_feature_means()
+        filled = dict(data) if data is not None else {}
+        # Ensure all 15 fields present
+        for field, mean_value in means.items():
+            if field not in filled or filled[field] is None:
+                filled[field] = mean_value
+        return filled
     
     def predict_heart_risk(self, data: Dict[str, Any]) -> Tuple[int, float]:
         """

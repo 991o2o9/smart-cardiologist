@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.services.database import get_db
 from src.services.auth_service import AuthService
@@ -6,9 +6,10 @@ from src.services.email_service import EmailService
 from src.utils.auth_middleware import get_current_user
 from src.models.auth_schemas import (
     UserRegister, UserLogin, ActivationCode, ResendActivation,
-    Token, UserResponse, MessageResponse, RefreshToken
+    Token, UserResponse, MessageResponse, RefreshToken, EmailStatusResponse
 )
 from src.models.database import User
+from pydantic import EmailStr
 import logging
 
 logger = logging.getLogger(__name__)
@@ -253,4 +254,41 @@ async def logout_user(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error logging out from system"
+        )
+
+
+@router.get("/status", response_model=EmailStatusResponse)
+async def check_email_status(
+    email: EmailStr = Query(..., description="User email to check"),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Check email activation status
+    
+    - **email**: User email to check (must be valid email format)
+    
+    Returns activation status and whether user exists
+    """
+    try:
+        # Get user by email
+        user = await AuthService.get_user_by_email(db=db, email=email)
+        
+        if user:
+            return EmailStatusResponse(
+                email=email,
+                is_activated=user.is_activated,
+                exists=True
+            )
+        else:
+            return EmailStatusResponse(
+                email=email,
+                is_activated=False,
+                exists=False
+            )
+            
+    except Exception as e:
+        logger.error(f"Email status check error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error checking email status"
         )

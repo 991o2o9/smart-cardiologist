@@ -1,15 +1,16 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 from src.models.schemas import MedicalChatRequest, MedicalChatResponse, MedicalChatMessage
 from src.models.database import User, CardioAnalysis, HeartPrediction, CardioChat
 from src.services.ai_service import AIService
 from src.services.database import get_db
 from src.services.encryption_service import encryption_service
 from src.utils.auth_middleware import get_current_user
+from src.services.three_level_filter import get_medical_filter
 import logging
 import datetime
-from src.models.schemas import CardioChatSummary, CardioChatDetail, CardioChatMessage as ChatMsgSchema
+from src.models.schemas import CardioChatSummary, CardioChatDetail, CardioChatMessage as ChatMsgSchema, ActiveChatResponse, CreateChatResponse
 
 logger = logging.getLogger(__name__)
 
@@ -71,44 +72,21 @@ async def get_recent_medical_data(user_id, db, n=3):
         predictions.append(decrypted)
     return analyses, predictions
 
-# Utility: check if question is medical (simple filter)
+# Utility: check if question is medical using three-level filter
 def is_medical_question(messages):
-    medical_keywords = [
-        # English terms
-        'heart', 'cardio', 'pulse', 'pressure', 'blood', 'medicine', 'symptom', 'treatment',
-        'cardiologist', 'pain', 'breath', 'hypertension', 'cholesterol', 'risk', 'disease',
-        'doctor', 'health', 'diagnosis', 'therapy', 'analysis', 'test', 'ECG', 'blood test',
-        'medication', 'recommendation', 'lifestyle', 'exercise', 'diet', 'weight', 'stress',
-        'cardiology', 'arrhythmia', 'ischemia', 'myocardial', 'stroke', 'attack', 'artery',
-        'vein', 'surgery', 'operation', 'consultation', 'symptoms', 'treatment', 'medications',
-        'chest', 'shortness', 'fatigue', 'palpitation', 'fainting', 'swelling', 'blood sugar',
-        'diabetes', 'smoking', 'alcohol', 'family history', 'prevention', 'screening',
-        # Russian terms
-        'сердце', 'кардио', 'пульс', 'давление', 'кровь', 'лекарств', 'симптом', 'лечение',
-        'кардиолог', 'боль', 'дыхание', 'гипертони', 'холестерин', 'риск', 'болезн', 'врач',
-        'здоровье', 'диагноз', 'терапия', 'анализ', 'тест', 'экг', 'медикамент', 'рекомендац',
-        'образ жизни', 'нагрузка', 'диета', 'вес', 'стресс', 'аритмия', 'ишемия', 'инфаркт',
-        'инсульт', 'артерия', 'вена', 'операция', 'консультация', 'симптомы', 'грудь',
-        'одышка', 'усталость', 'сердцебиение', 'обморок', 'отеки', 'сахар', 'диабет',
-        'курение', 'алкоголь', 'наследственность', 'профилактика', 'скрининг',
-        # General complaints
-        'температура', 'кашель', 'простуда', 'ОРВИ', 'ОРЗ', 'жар', 'головная боль',
-        'головокружение', 'тошнота', 'рвота', 'бессонница', 'сон', 'аппетит', 'бессилие',
-        'потливость', 'озноб', 'ломота', 'боли в спине', 'боли в ногах', 'боли в руках',
-        'тяжесть', 'жжение', 'покалывание', 'покраснение', 'сыпь', 'зуд', 'аллергия',
-        'иммунитет', 'температура тела', 'потеря сознания', 'слабость', 'усталость',
-        'боли в животе', 'понос', 'запор', 'метеоризм', 'изжога', 'отрыжка', 'рвота',
-        'боли в пояснице', 'боли в груди', 'боли при дыхании', 'боли при движении',
-        'боли при нагрузке', 'боли после еды', 'боли ночью', 'боли утром', 'боли вечером',
-        'боли при ходьбе', 'боли при беге', 'боли при наклоне', 'боли при повороте',
-        'боли при кашле', 'боли при чихании', 'боли при глотании', 'боли при разговоре',
-        'боли при смехе', 'боли при плаче', 'боли при стрессе', 'боли при волнении',
-        'боли при отдыхе', 'боли при работе', 'боли при спорте', 'боли при физической нагрузке'
-    ]
+    """Проверка медицинского вопроса с использованием трёхуровневой системы фильтрации"""
     last_user_message = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), None)
     if not last_user_message:
         return False
-    return any(word in last_user_message.lower() for word in medical_keywords)
+    
+    # Используем трёхуровневую систему фильтрации
+    medical_filter = get_medical_filter()
+    filter_result = medical_filter.filter_question(last_user_message)
+    
+    # Логируем результат фильтрации
+    logger.info(f"Фильтрация вопроса: '{last_user_message[:50]}...' -> {filter_result['method']} (медицинский: {filter_result['is_medical']}, уверенность: {filter_result['confidence']:.3f})")
+    
+    return filter_result['is_medical']
 
 # Utility: build prompt for AI
 def build_medical_prompt(user_profile, analyses, predictions, messages):
@@ -123,6 +101,100 @@ def build_medical_prompt(user_profile, analyses, predictions, messages):
     )
     return prompt
 
+# Utility: get or create active chat for user
+async def get_or_create_active_chat(user: User, db: AsyncSession):
+    """Получить активный чат пользователя или создать новый"""
+    # Проверяем есть ли активный чат
+    if user.active_chat_id:
+        result = await db.execute(
+            select(CardioChat)
+            .where(CardioChat.id == user.active_chat_id, CardioChat.user_id == user.id, CardioChat.is_active == True)
+        )
+        active_chat = result.scalar_one_or_none()
+        if active_chat:
+            return active_chat
+    
+    # Если активного чата нет, создаем новый
+    new_chat = CardioChat(
+        user_id=user.id,
+        messages=[],
+        summary="",
+        is_active=True
+    )
+    db.add(new_chat)
+    await db.flush()  # Получаем ID нового чата
+    
+    # Обновляем активный чат у пользователя
+    await db.execute(
+        update(User)
+        .where(User.id == user.id)
+        .values(active_chat_id=new_chat.id)
+    )
+    
+    await db.commit()
+    return new_chat
+
+# Utility: deactivate other chats for user
+async def deactivate_other_chats(user_id: int, current_chat_id: int, db: AsyncSession):
+    """Деактивировать все остальные чаты пользователя"""
+    await db.execute(
+        update(CardioChat)
+        .where(CardioChat.user_id == user_id, CardioChat.id != current_chat_id, CardioChat.is_active == True)
+        .values(is_active=False)
+    )
+
+@router.get("/active", response_model=ActiveChatResponse)
+async def get_active_chat(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Получить активный чат пользователя"""
+    active_chat = await get_or_create_active_chat(current_user, db)
+    
+    messages = [ChatMsgSchema(**msg) for msg in active_chat.messages]
+    return ActiveChatResponse(
+        chat_id=active_chat.id,
+        messages=messages,
+        summary=active_chat.summary,
+        created_at=active_chat.created_at.isoformat() + "Z",
+        updated_at=active_chat.updated_at.isoformat() + "Z"
+    )
+
+@router.post("/create", response_model=CreateChatResponse)
+async def create_new_chat(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Создать новый чат"""
+    # Деактивируем текущий активный чат
+    if current_user.active_chat_id:
+        await db.execute(
+            update(CardioChat)
+            .where(CardioChat.id == current_user.active_chat_id)
+            .values(is_active=False)
+        )
+    
+    # Создаем новый чат
+    new_chat = CardioChat(
+        user_id=current_user.id,
+        messages=[],
+        summary="",
+        is_active=True
+    )
+    db.add(new_chat)
+    await db.flush()
+    
+    # Обновляем активный чат у пользователя
+    await db.execute(
+        update(User)
+        .where(User.id == current_user.id)
+        .values(active_chat_id=new_chat.id)
+    )
+    
+    await db.commit()
+    
+    return CreateChatResponse(chat_id=new_chat.id)
+
 @router.post("/", response_model=MedicalChatResponse)
 async def medical_chat(
     data: MedicalChatRequest,
@@ -133,16 +205,20 @@ async def medical_chat(
     if not is_medical_question([m.dict() for m in data.messages]):
         return MedicalChatResponse(response="I can only answer medical questions related to cardiology and health.")
 
-    # 2. Get user profile
+    # 2. Get or create active chat
+    active_chat = await get_or_create_active_chat(current_user, db)
+
+    # 3. Get user profile
     user_profile = get_user_profile(current_user)
 
-    # 3. Get recent analyses and predictions
+    # 4. Get recent analyses and predictions
     analyses, predictions = await get_recent_medical_data(current_user.id, db)
 
-    # 4. Build prompt
-    prompt = build_medical_prompt(user_profile, analyses, predictions, [m.dict() for m in data.messages])
+    # 5. Build prompt with chat history
+    all_messages = active_chat.messages + [m.dict() for m in data.messages]
+    prompt = build_medical_prompt(user_profile, analyses, predictions, all_messages)
 
-    # 5. Get AI response
+    # 6. Get AI response
     try:
         ai_response = ai_service.get_cardio_analysis(
             age=None, pulse=None, risk=None, symptoms=prompt  # prompt instead of symptoms
@@ -151,18 +227,33 @@ async def medical_chat(
         logger.error(f"AI service error: {e}")
         raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
 
-    # 6. Save chat to CardioChat
+    # 7. Add messages to chat
     now = datetime.datetime.utcnow().isoformat() + "Z"
-    chat_messages = [m.dict() for m in data.messages]
-    chat_messages.append({"role": "assistant", "content": ai_response, "timestamp": now})
-    summary = chat_messages[0]["content"][:100] if chat_messages else ""
-    new_chat = CardioChat(
-        user_id=current_user.id,
-        messages=chat_messages,
-        summary=summary
-    )
-    db.add(new_chat)
+    
+    # Добавляем сообщения пользователя
+    for message in data.messages:
+        active_chat.messages.append({
+            "role": message.role,
+            "content": message.content,
+            "timestamp": now
+        })
+    
+    # Добавляем ответ ИИ
+    active_chat.messages.append({
+        "role": "assistant",
+        "content": ai_response,
+        "timestamp": now
+    })
+    
+    # Обновляем summary
+    if not active_chat.summary and data.messages:
+        active_chat.summary = data.messages[0].content[:100]
+    
+    # Обновляем время
+    active_chat.updated_at = datetime.datetime.utcnow()
+    
     await db.commit()
+    
     return MedicalChatResponse(response=ai_response)
 
 @router.get("/history", response_model=list[CardioChatSummary])
@@ -202,6 +293,7 @@ async def get_chat_detail(
     chat = result.scalar_one_or_none()
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
+    
     messages = [ChatMsgSchema(**msg) for msg in chat.messages]
     return CardioChatDetail(
         id=chat.id,
@@ -210,3 +302,40 @@ async def get_chat_detail(
         created_at=chat.created_at.isoformat() + "Z",
         updated_at=chat.updated_at.isoformat() + "Z"
     )
+
+@router.post("/history/{chat_id}/activate")
+async def activate_chat(
+    chat_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Активировать конкретный чат"""
+    # Проверяем что чат принадлежит пользователю
+    result = await db.execute(
+        select(CardioChat)
+        .where(CardioChat.id == chat_id, CardioChat.user_id == current_user.id)
+    )
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    # Деактивируем все остальные чаты
+    await deactivate_other_chats(current_user.id, chat_id, db)
+    
+    # Активируем выбранный чат
+    await db.execute(
+        update(CardioChat)
+        .where(CardioChat.id == chat_id)
+        .values(is_active=True)
+    )
+    
+    # Обновляем активный чат у пользователя
+    await db.execute(
+        update(User)
+        .where(User.id == current_user.id)
+        .values(active_chat_id=chat_id)
+    )
+    
+    await db.commit()
+    
+    return {"message": "Chat activated successfully"}
