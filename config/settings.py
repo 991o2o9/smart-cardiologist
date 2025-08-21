@@ -3,9 +3,8 @@ from typing import Optional
 from pydantic_settings import BaseSettings
 
 
-class Settings(BaseSettings):
-    # База данных
-    DATABASE_URL: str = "postgresql+asyncpg://myuser:mypassword@localhost:5432/mydb"
+class Settings(BaseSettings):    
+    DATABASE_URL: Optional[str] = None 
     DB_HOST: str = "localhost"
     DB_PORT: int = 5432
     DB_NAME: str = "mydb"
@@ -16,7 +15,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # Добавляем настройку для refresh token
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     
     # Email
     MAIL_USERNAME: str = "your-email@gmail.com"
@@ -52,13 +51,15 @@ class Settings(BaseSettings):
         case_sensitive = True
 
 
-# Создаем экземпляр настроек
 settings = Settings()
 
-# Формируем URL базы данных из компонентов
+
 def get_database_url() -> str:
-    """Получить URL базы данных"""
-    if settings.DATABASE_URL != "postgresql+asyncpg://myuser:mypassword@localhost:5432/mydb":
-        return settings.DATABASE_URL
+    """Получить URL базы данных (Railway или локальный)"""
+    if settings.DATABASE_URL:
+        url = settings.DATABASE_URL        
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return url
     
     return f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
