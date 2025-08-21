@@ -1,14 +1,14 @@
 #!/bin/bash
 set -e
 
-echo "🚀 Запуск контейнера..."
+echo "🚀 Запуск entrypoint..."
 
+# Обучаем ML модель, если её нет
 if [ ! -f "data/processed/medical_classifier.pkl" ]; then
-    echo "⚡ Модель не найдена. Обучаем..."
-    python scripts/train_medical_classifier.py
-else
-    echo "✅ Модель найдена, обучение не требуется."
+  echo "⚙️  Обучение ML модели..."
+  python scripts/train_medical_classifier.py || echo "⚠️  Не удалось обучить модель"
 fi
 
-echo "🚀 Запускаем приложение..."
+# Запускаем приложение
+echo "✅ Старт uvicorn..."
 exec uvicorn src.main:app --host 0.0.0.0 --port 8000

@@ -31,6 +31,9 @@ USER app
 # Открываем порт
 EXPOSE 8000
 
+# Устанавливаем PYTHONPATH
+ENV PYTHONPATH=/app
+
 # Копируем entrypoint
 COPY docker-entrypoint.sh /app/
 RUN chmod +x /app/docker-entrypoint.sh
