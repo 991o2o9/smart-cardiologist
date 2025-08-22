@@ -2,33 +2,24 @@ substitutions:
   _REGION: "europe-central2"
   _REPO: "app"
   _IMAGE: "fastapi-app"
-  _INSTANCE_CONNECTION_NAME: "project:region:instance"
+  _INSTANCE_CONNECTION_NAME: "balmy-mark-469807-j5:europe-central2:my-postgres"
   _DB_USER: "myuser"
   _DB_PASSWORD: "mypassword"
   _DB_NAME: "mydb"
-  _SECRET_KEY: "supersecret"
-  _GROQ_API_KEY: "your_groq_api_key"
-  _ALLOWED_ORIGINS: "*"
-  _MAIL_USERNAME: "your@mail.com"
-  _MAIL_PASSWORD: "mailpassword"
-  _MAIL_FROM: "your@mail.com"
+  _SECRET_KEY: "your-super-secret-key-change-in-production"
+  _ALLOWED_ORIGINS: "http://localhost:5173"
+  _GROQ_API_KEY: "gsk_xxx"
+  _MAIL_USERNAME: "1kkro123@gmail.com"
+  _MAIL_PASSWORD: "jwmz mzak xwzy xfjn"
+  _MAIL_FROM: "1kkro123@gmail.com"
 
 steps:
-  # 1) Build
   - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - build
-      - -t
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
-      - .
+    args: ["build", "-t", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA", "."]
 
-  # 2) Push
   - name: 'gcr.io/cloud-builders/docker'
-    args:
-      - push
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
+    args: ["push", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA"]
 
-  # 3) Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -47,7 +38,6 @@ steps:
       - --add-cloudsql-instances
       - ${_INSTANCE_CONNECTION_NAME}
 
-  # 4) Update env vars
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
