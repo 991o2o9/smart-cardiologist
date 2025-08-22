@@ -23,6 +23,9 @@ COPY . .
 # Создаем директории для данных
 RUN mkdir -p data/processed data/medicalQ data/nonMedicalQ logs
 
+# Делаем entrypoint исполняемым (до смены пользователя)
+RUN chmod +x /app/docker-entrypoint.sh
+
 # Создаем пользователя для безопасности
 RUN useradd --create-home --shell /bin/bash app && \
     chown -R app:app /app
@@ -33,9 +36,5 @@ EXPOSE 8000
 
 # Устанавливаем PYTHONPATH
 ENV PYTHONPATH=/app
-
-# Копируем entrypoint
-COPY docker-entrypoint.sh /app/
-RUN chmod +x /app/docker-entrypoint.sh
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

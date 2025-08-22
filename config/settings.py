@@ -6,7 +6,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):    
     DATABASE_URL: Optional[str] = None 
     DB_HOST: str = "localhost"
-    DB_PORT: int = 5432
+    DB_PORT: int = 5433
     DB_NAME: str = "mydb"
     DB_USER: str = "myuser"
     DB_PASSWORD: str = "mypassword"
