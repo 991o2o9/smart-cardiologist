@@ -1,51 +1,89 @@
-# cloudbuild.yaml
 substitutions:
   _REGION: "europe-central2"
   _REPO: "app"
   _IMAGE: "fastapi-app"
+  _INSTANCE_CONNECTION_NAME: "project:region:instance"
+  _DB_USER: "myuser"
+  _DB_PASSWORD: "mypassword"
+  _DB_NAME: "mydb"
+  _SECRET_KEY: "supersecret"
+  _GROQ_API_KEY: "your_groq_api_key"
+  _ALLOWED_ORIGINS: "*"
+  _MAIL_USERNAME: "your@mail.com"
+  _MAIL_PASSWORD: "mailpassword"
+  _MAIL_FROM: "your@mail.com"
 
 steps:
   # 1) Build
   - name: 'gcr.io/cloud-builders/docker'
     args:
-      [
-        'build', '-t',
-        '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA',
-        '.'
-      ]
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
+      - .
 
-  # 2) Push to Artifact Registry
+  # 2) Push
   - name: 'gcr.io/cloud-builders/docker'
     args:
-      [
-        'push',
-        '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA'
-      ]
+      - push
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
 
-  # 3) Deploy to Cloud Run (с привязкой Cloud SQL)
+  # 3) Deploy to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
-      [
-        'run', 'deploy', '${_IMAGE}',
-        '--image', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA',
-        '--region', '${_REGION}',
-        '--platform', 'managed',
-        '--allow-unauthenticated',
-        '--service-account', 'cloud-run-sa@${PROJECT_ID}.iam.gserviceaccount.com',
-        '--add-cloudsql-instances', '${_INSTANCE_CONNECTION_NAME}'
-      ]
+      - run
+      - deploy
+      - ${_IMAGE}
+      - --image
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
+      - --region
+      - ${_REGION}
+      - --platform
+      - managed
+      - --allow-unauthenticated
+      - --service-account
+      - cloud-run-sa@${PROJECT_ID}.iam.gserviceaccount.com
+      - --add-cloudsql-instances
+      - ${_INSTANCE_CONNECTION_NAME}
 
-  # 4) Update env vars (для Unix-сокета /cloudsql)
+  # 4) Update env vars
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
-      [
-        'run', 'services', 'update', '${_IMAGE}',
-        '--region', '${_REGION}',
-        '--update-env-vars',
-        'INSTANCE_CONNECTION_NAME=${_INSTANCE_CONNECTION_NAME},DB_USER=${_DB_USER},DB_PASSWORD=${_DB_PASSWORD},DB_NAME=${_DB_NAME},DB_SOCKET_DIR=/cloudsql,SECRET_KEY=${_SECRET_KEY},ALLOWED_ORIGINS=${_ALLOWED_ORIGINS},PORT=8080'
-      ]
+      - run
+      - services
+      - update
+      - ${_IMAGE}
+      - --region
+      - ${_REGION}
+      - --update-env-vars
+      - >
+        INSTANCE_CONNECTION_NAME=${_INSTANCE_CONNECTION_NAME},
+        DB_USER=${_DB_USER},
+        DB_PASSWORD=${_DB_PASSWORD},
+        DB_NAME=${_DB_NAME},
+        DB_SOCKET_DIR=/cloudsql,
+        DB_PORT=5432,
+        SECRET_KEY=${_SECRET_KEY},
+        ALGORITHM=HS256,
+        ACCESS_TOKEN_EXPIRE_MINUTES=30,
+        GROQ_API_KEY=${_GROQ_API_KEY},
+        RATE_LIMIT=5,
+        CACHE_TTL=300,
+        ALLOWED_ORIGINS=${_ALLOWED_ORIGINS},
+        MODEL_PATH=data/processed/model.pkl,
+        MAIL_USERNAME=${_MAIL_USERNAME},
+        MAIL_PASSWORD=${_MAIL_PASSWORD},
+        MAIL_FROM=${_MAIL_FROM},
+        MAIL_PORT=587,
+        MAIL_SERVER=smtp.gmail.com,
+        MAIL_TLS=true,
+        MAIL_SSL=false,
+        ACTIVATION_CODE_EXPIRE_MINUTES=10,
+        MAX_ACTIVATION_ATTEMPTS=5,
+        DEBUG=true,
+        PORT=8080
 
 images:
-  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA'
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
