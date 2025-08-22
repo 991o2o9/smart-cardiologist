@@ -2,10 +2,10 @@ from fastapi import APIRouter, Query, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
 from datetime import datetime, timedelta
-from models.database import HeartPrediction, User
-from services.database import get_db
-from services.encryption_service import encryption_service
-from utils.auth_middleware import get_current_user
+from src.models.database import HeartPrediction, User
+from src.services.database import get_db
+from src.services.encryption_service import encryption_service
+from src.utils.auth_middleware import get_current_user
 
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 

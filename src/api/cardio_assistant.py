@@ -1,16 +1,16 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
-from models.schemas import MedicalChatRequest, MedicalChatResponse, MedicalChatMessage
-from models.database import User, CardioAnalysis, HeartPrediction, CardioChat
-from services.ai_service import AIService
-from services.database import get_db
-from services.encryption_service import encryption_service
-from utils.auth_middleware import get_current_user
-from services.three_level_filter import get_medical_filter
+from src.models.schemas import MedicalChatRequest, MedicalChatResponse, MedicalChatMessage
+from src.models.database import User, CardioAnalysis, HeartPrediction, CardioChat
+from src.services.ai_service import AIService
+from src.services.database import get_db
+from src.services.encryption_service import encryption_service
+from src.utils.auth_middleware import get_current_user
+from src.services.three_level_filter import get_medical_filter
 import logging
 import datetime
-from models.schemas import CardioChatSummary, CardioChatDetail, CardioChatMessage as ChatMsgSchema, ActiveChatResponse, CreateChatResponse
+from src.models.schemas import CardioChatSummary, CardioChatDetail, CardioChatMessage as ChatMsgSchema, ActiveChatResponse, CreateChatResponse
 
 logger = logging.getLogger(__name__)
 

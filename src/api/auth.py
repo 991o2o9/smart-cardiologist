@@ -1,14 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from services.database import get_db
-from services.auth_service import AuthService
-from services.email_service import EmailService
-from utils.auth_middleware import get_current_user
-from models.auth_schemas import (
+from src.services.database import get_db
+from src.services.auth_service import AuthService
+from src.services.email_service import EmailService
+from src.utils.auth_middleware import get_current_user
+from src.models.auth_schemas import (
     UserRegister, UserLogin, ActivationCode, ResendActivation,
     Token, UserResponse, MessageResponse, RefreshToken, EmailStatusResponse
 )
-from models.database import User
+from src.models.database import User
 from pydantic import EmailStr
 import logging
 

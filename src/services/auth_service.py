@@ -8,8 +8,8 @@ from passlib.context import CryptContext
 from jose import JWTError, jwt
 from fastapi import HTTPException, status
 from config.settings import settings
-from models.database import User
-from models.auth_schemas import TokenData
+from src.models.database import User
+from src.models.auth_schemas import TokenData
 import logging
 
 logger = logging.getLogger(__name__)

@@ -1,12 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from models.schemas import HeartData, HeartPredictionResponse
-from models.database import User, HeartPrediction
-from services.ml_service import MLService
-from services.database import get_db
-from services.encryption_service import encryption_service
-from utils.auth_middleware import get_current_user, get_optional_user
+from src.models.schemas import HeartData, HeartPredictionResponse
+from src.models.database import User, HeartPrediction
+from src.services.ml_service import MLService
+from src.services.database import get_db
+from src.services.encryption_service import encryption_service
+from src.utils.auth_middleware import get_current_user, get_optional_user
 import logging
 
 logger = logging.getLogger(__name__)

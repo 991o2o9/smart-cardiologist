@@ -7,9 +7,9 @@
 
 import logging
 from typing import Tuple, Dict, Any
-from utils.medical_keywords import quick_medical_filter
-from services.ml_filter_service import get_medical_classifier
-from services.ai_service import AIService
+from src.utils.medical_keywords import quick_medical_filter
+from src.services.ml_filter_service import get_medical_classifier
+from src.services.ai_service import AIService
 
 logger = logging.getLogger(__name__)
 

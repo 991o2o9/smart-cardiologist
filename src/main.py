@@ -6,17 +6,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from config.settings import settings
 
 # Import routers
-from api.cardio_assistant import router as cardio_router
-from api.heart_prediction import router as heart_router
-from api.auth import router as auth_router
-from api.analytics import router as analytics_router
+from src.api.cardio_assistant import router as cardio_router
+from src.api.heart_prediction import router as heart_router
+from src.api.auth import router as auth_router
+from src.api.analytics import router as analytics_router
 
 # Import services
-from services.database import init_db, close_db, check_db_connection, engine
-from services.email_service import EmailService
+from src.services.database import init_db, close_db, check_db_connection, engine
+from src.services.email_service import EmailService
 
 # Import models
-from models import Base
+from src.models import Base
 
 # Setup logging
 logging.basicConfig(

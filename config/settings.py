@@ -4,47 +4,42 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):    
-    DATABASE_URL: Optional[str] = None 
-    DB_HOST: str = "localhost"
-    DB_PORT: int = 5433
-    DB_NAME: str = "mydb"
-    DB_USER: str = "myuser"
-    DB_PASSWORD: str = "mypassword"
+    DATABASE_URL: str
     
     # JWT
-    SECRET_KEY: str = "your-secret-key-change-in-production"
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    SECRET_KEY: str
+    ALGORITHM: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: int
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30 
     
     # Email
-    MAIL_USERNAME: str = "your-email@gmail.com"
-    MAIL_PASSWORD: str = "your-app-password"
-    MAIL_FROM: str = "your-email@gmail.com"
-    MAIL_PORT: int = 587
-    MAIL_SERVER: str = "smtp.gmail.com"
-    MAIL_TLS: bool = True
-    MAIL_SSL: bool = False
+    MAIL_USERNAME: str
+    MAIL_PASSWORD: str
+    MAIL_FROM: str
+    MAIL_PORT: int
+    MAIL_SERVER: str
+    MAIL_TLS: bool
+    MAIL_SSL: bool
     
     # Активация
-    ACTIVATION_CODE_EXPIRE_MINUTES: int = 10
-    MAX_ACTIVATION_ATTEMPTS: int = 5
+    ACTIVATION_CODE_EXPIRE_MINUTES: int
+    MAX_ACTIVATION_ATTEMPTS: int
     
     # AI Service
     GROQ_API_KEY: Optional[str] = None
     
     # Rate Limiting
-    RATE_LIMIT: int = 5
-    CACHE_TTL: int = 300
+    RATE_LIMIT: int
+    CACHE_TTL: int
     
     # CORS Configuration
-    ALLOWED_ORIGINS: str = "http://localhost:5173"
+    ALLOWED_ORIGINS: str
     
     # Model Configuration
-    MODEL_PATH: str = "data/processed/model.pkl"
+    MODEL_PATH: str
     
     # Режим разработки
-    DEBUG: bool = True
+    DEBUG: bool
     
     class Config:
         env_file = ".env"
@@ -52,14 +47,3 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
-
-
-def get_database_url() -> str:
-    """Получить URL базы данных (Railway или локальный)"""
-    if settings.DATABASE_URL:
-        url = settings.DATABASE_URL        
-        if url.startswith("postgresql://"):
-            url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
-        return url
-    
-    return f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"

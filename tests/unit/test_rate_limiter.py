@@ -1,6 +1,6 @@
 import pytest
 import time
-from utils.rate_limiter import RateLimiter
+from src.utils.rate_limiter import RateLimiter
 
 
 class TestRateLimiter:
