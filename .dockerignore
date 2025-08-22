@@ -75,19 +75,13 @@ logs/
 *.temp
 
 # ────────────────
-# Data (оставляем только готовую модель!)
-data/raw/
-data/interim/
-data/external/
-data/nonMedicalQ/
-data/medicalQ/
-
-# ────────────────
-# ML artifacts (только обученная модель нужна!)
+# Data (оставляем только то, что нужно!)
+data/*
 !data/processed/
-!data/processed/medical_classifier.pkl
 !data/processed/model.pkl
+!data/processed/medical_classifier.pkl
+!data/feature_means.json
 
 # ────────────────
-# Scripts (оставляем нужные!)
+# ML scripts (оставляем только нужные)
 !scripts/

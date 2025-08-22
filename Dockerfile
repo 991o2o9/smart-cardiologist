@@ -18,18 +18,14 @@ COPY requirements.txt .
 # Устанавливаем Python зависимости
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем код приложения
+# Копируем код приложения и артефакты
 COPY . .
 
-# Делаем start.sh исполняемым (после COPY!)
+# Делаем start.sh исполняемым
 RUN chmod +x scripts/start.sh
 
-# Создаем директории для данных
-RUN mkdir -p data/processed data/medicalQ data/nonMedicalQ logs
-
-# ⚠️ Обучение модели — лучше вынести в CI/CD (build будет долгий). 
-# Но если нужно прямо в Docker:
-RUN test -f data/processed/medical_classifier.pkl || python scripts/train_medical_classifier.py
+# Создаем директорию для логов
+RUN mkdir -p logs
 
 # Создаем пользователя для безопасности
 RUN useradd --create-home --shell /bin/bash app && \
@@ -41,5 +37,5 @@ EXPOSE 8080
 
 ENV PYTHONPATH=/app
 
-# Запускаем через start.sh
+# Запуск через скрипт
 CMD ["bash", "scripts/start.sh"]
