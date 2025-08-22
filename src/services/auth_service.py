@@ -331,11 +331,31 @@ class AuthService:
             expires_delta=access_token_expires
         )
         
+        # Create new refresh token
+        refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+        new_refresh_token = cls.create_refresh_token(
+            data={"sub": user.email, "user_id": user.id},
+            expires_delta=refresh_token_expires
+        )
+        
+        # Update refresh token in database
+        await db.execute(
+            update(User)
+            .where(User.id == user.id)
+            .values(
+                refresh_token=new_refresh_token,
+                refresh_token_expires=datetime.utcnow() + refresh_token_expires
+            )
+        )
+        await db.commit()
+        
         logger.info(f"Access token refreshed for user: {user.email}")
         return {
             "access_token": new_access_token,
+            "refresh_token": new_refresh_token,
             "token_type": "bearer",
-            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES
+            "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES,
+            "refresh_expires_in": settings.REFRESH_TOKEN_EXPIRE_DAYS
         }
     
     @classmethod

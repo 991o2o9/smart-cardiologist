@@ -6,7 +6,7 @@ from src.services.email_service import EmailService
 from src.utils.auth_middleware import get_current_user
 from src.models.auth_schemas import (
     UserRegister, UserLogin, ActivationCode, ResendActivation,
-    Token, UserResponse, MessageResponse, RefreshToken, EmailStatusResponse
+    Token, TokenRefreshResponse, RefreshToken, UserResponse, EmailStatusResponse, MessageResponse
 )
 from src.models.database import User
 from pydantic import EmailStr
@@ -184,7 +184,7 @@ async def login_user(
         )
 
 
-@router.post("/refresh", response_model=Token)
+@router.post("/refresh", response_model=TokenRefreshResponse)
 async def refresh_token(
     refresh_data: RefreshToken,
     db: AsyncSession = Depends(get_db)
@@ -203,7 +203,7 @@ async def refresh_token(
             refresh_token=refresh_data.refresh_token
         )
         
-        return Token(**token_data)
+        return TokenRefreshResponse(**token_data)
         
     except HTTPException:
         raise

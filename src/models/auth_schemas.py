@@ -70,6 +70,15 @@ class Token(BaseModel):
     refresh_expires_in: int = Field(..., description="Refresh token lifetime in days")
 
 
+class TokenRefreshResponse(BaseModel):
+    """JWT token refresh response schema"""
+    access_token: str = Field(..., description="JWT access token")
+    refresh_token: str = Field(..., description="JWT refresh token")
+    token_type: str = Field(default="bearer", description="Token type")
+    expires_in: int = Field(..., description="Access token lifetime in minutes")
+    refresh_expires_in: int = Field(..., description="Refresh token lifetime in days")
+
+
 class RefreshToken(BaseModel):
     """Token refresh schema"""
     refresh_token: str = Field(..., description="JWT refresh token")
