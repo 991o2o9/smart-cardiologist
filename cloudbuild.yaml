@@ -1,0 +1,51 @@
+# cloudbuild.yaml
+substitutions:
+  _REGION: "europe-central2"
+  _REPO: "app"
+  _IMAGE: "fastapi-app"
+
+steps:
+  # 1) Build
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'build', '-t',
+        '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA',
+        '.'
+      ]
+
+  # 2) Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      [
+        'push',
+        '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA'
+      ]
+
+  # 3) Deploy to Cloud Run (с привязкой Cloud SQL)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      [
+        'run', 'deploy', '${_IMAGE}',
+        '--image', '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA',
+        '--region', '${_REGION}',
+        '--platform', 'managed',
+        '--allow-unauthenticated',
+        '--service-account', 'cloud-run-sa@${PROJECT_ID}.iam.gserviceaccount.com',
+        '--add-cloudsql-instances', '${_INSTANCE_CONNECTION_NAME}'
+      ]
+
+  # 4) Update env vars (для Unix-сокета /cloudsql)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      [
+        'run', 'services', 'update', '${_IMAGE}',
+        '--region', '${_REGION}',
+        '--update-env-vars',
+        'INSTANCE_CONNECTION_NAME=${_INSTANCE_CONNECTION_NAME},DB_USER=${_DB_USER},DB_PASSWORD=${_DB_PASSWORD},DB_NAME=${_DB_NAME},DB_SOCKET_DIR=/cloudsql,SECRET_KEY=${_SECRET_KEY},ALLOWED_ORIGINS=${_ALLOWED_ORIGINS},PORT=8080'
+      ]
+
+images:
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA'

@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     DB_NAME: str = "mydb"
     DB_USER: str = "myuser"
     DB_PASSWORD: str = "mypassword"
+    # Cloud SQL (опционально)
+    INSTANCE_CONNECTION_NAME: Optional[str] = None  # project:region:instance
+    DB_SOCKET_DIR: str = "/cloudsql"
     
     # JWT
     SECRET_KEY: str = "your-secret-key-change-in-production"
@@ -58,7 +61,21 @@ settings = Settings()
 # Формируем URL базы данных из компонентов
 def get_database_url() -> str:
     """Получить URL базы данных"""
+    # 1) Явно заданный DATABASE_URL имеет приоритет
     if settings.DATABASE_URL != "postgresql+asyncpg://myuser:mypassword@localhost:5432/mydb":
         return settings.DATABASE_URL
-    
-    return f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+
+    # 2) Поддержка Unix-сокета Cloud SQL, если указано имя инстанса
+    if settings.INSTANCE_CONNECTION_NAME:
+        # Формат Unix-сокета для asyncpg через SQLAlchemy:
+        # postgresql+asyncpg://USER:PASSWORD@/DBNAME?host=/cloudsql/INSTANCE_CONNECTION_NAME
+        return (
+            f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"
+            f"@/{settings.DB_NAME}?host={settings.DB_SOCKET_DIR}/{settings.INSTANCE_CONNECTION_NAME}"
+        )
+
+    # 3) TCP-подключение по умолчанию
+    return (
+        f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}"
+        f"@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_NAME}"
+    )

@@ -8,6 +8,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Копируем файлы зависимостей
@@ -18,6 +19,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Копируем код приложения
 COPY . .
+
+# Ensure start script is executable
+RUN chmod +x scripts/start.sh
 
 # Создаем директории для данных
 RUN mkdir -p data/processed data/medicalQ data/nonMedicalQ logs
@@ -36,4 +40,4 @@ USER app
 EXPOSE 8000
 
 # Команда для запуска приложения
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/bin/bash", "scripts/start.sh"]
