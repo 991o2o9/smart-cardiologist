@@ -72,32 +72,123 @@ async def get_recent_medical_data(user_id, db, n=3):
         predictions.append(decrypted)
     return analyses, predictions
 
+# Utility: analyze medical context of conversation
+def analyze_medical_context(messages):
+    """Анализирует медицинский контекст всей беседы"""
+    if not messages:
+        return False, 0.0
+    
+    # Счетчики для анализа
+    medical_messages = 0
+    total_user_messages = 0
+    
+    # Медицинские ключевые слова (расширенный список)
+    medical_keywords = [
+        # Русские медицинские термины
+        'сердце', 'кардиолог', 'давление', 'пульс', 'холестерин', 'аритмия', 'инфаркт', 'стенокардия',
+        'здоровье', 'болезнь', 'симптом', 'боль', 'лечение', 'лекарство', 'таблетка', 'врач',
+        'кровь', 'сосуды', 'артерии', 'вены', 'гипертония', 'гипотония', 'диабет', 'ожирение',
+        'курение', 'алкоголь', 'спорт', 'физическая активность', 'диета', 'питание', 'сон', 'стресс',
+        'электрокардиограмма', 'экг', 'узи', 'анализ', 'результат', 'норма', 'отклонение',
+        
+        # Английские медицинские термины
+        'heart', 'cardio', 'blood pressure', 'pulse', 'cholesterol', 'arrhythmia', 'heart attack', 'angina',
+        'health', 'disease', 'symptom', 'pain', 'treatment', 'medicine', 'pill', 'doctor',
+        'blood', 'vessels', 'arteries', 'veins', 'hypertension', 'hypotension', 'diabetes', 'obesity',
+        'smoking', 'alcohol', 'exercise', 'physical activity', 'diet', 'nutrition', 'sleep', 'stress',
+        'electrocardiogram', 'ecg', 'ultrasound', 'test', 'result', 'normal', 'abnormal'
+    ]
+    
+    # Анализируем каждое сообщение пользователя
+    for msg in messages:
+        if msg['role'] == 'user':
+            total_user_messages += 1
+            content_lower = msg['content'].lower()
+            
+            # Проверяем наличие медицинских ключевых слов
+            if any(keyword in content_lower for keyword in medical_keywords):
+                medical_messages += 1
+    
+    # Вычисляем процент медицинских сообщений
+    if total_user_messages == 0:
+        return False, 0.0
+    
+    medical_ratio = medical_messages / total_user_messages
+    
+    # Определяем медицинский контекст
+    is_medical = medical_ratio >= 0.3  # Если 30% или больше сообщений медицинские
+    
+    logger.info(f"Анализ контекста: {medical_messages}/{total_user_messages} медицинских сообщений (соотношение: {medical_ratio:.2f})")
+    
+    return is_medical, medical_ratio
+
 # Utility: check if question is medical using three-level filter
 def is_medical_question(messages):
     """Проверка медицинского вопроса с использованием трёхуровневой системы фильтрации"""
-    last_user_message = next((m['content'] for m in reversed(messages) if m['role'] == 'user'), None)
-    if not last_user_message:
+    if not messages:
         return False
     
-    # Используем трёхуровневую систему фильтрации
+    # Если это первое сообщение в чате - проверяем его на медицинскую тематику
+    if len(messages) == 1:
+        last_user_message = messages[0]['content']
+        medical_filter = get_medical_filter()
+        filter_result = medical_filter.filter_question(last_user_message)
+        
+        logger.info(f"Фильтрация первого вопроса: '{last_user_message[:50]}...' -> {filter_result['method']} (медицинский: {filter_result['is_medical']}, уверенность: {filter_result['confidence']:.3f})")
+        return filter_result['is_medical']
+    
+    # Если это продолжение беседы - анализируем контекст
+    context_is_medical, context_confidence = analyze_medical_context(messages)
+    
+    # Если контекст медицинский, разрешаем продолжение
+    if context_is_medical:
+        logger.info(f"В контексте беседы обнаружен медицинский контекст (уверенность: {context_confidence:.2f}) - разрешаем продолжение")
+        return True
+    
+    # Если контекст не медицинский, проверяем последнее сообщение
+    last_user_message = messages[-1]['content']
     medical_filter = get_medical_filter()
     filter_result = medical_filter.filter_question(last_user_message)
     
-    # Логируем результат фильтрации
-    logger.info(f"Фильтрация вопроса: '{last_user_message[:50]}...' -> {filter_result['method']} (медицинский: {filter_result['is_medical']}, уверенность: {filter_result['confidence']:.3f})")
-    
+    logger.info(f"Фильтрация вопроса в не-медицинском контексте: '{last_user_message[:50]}...' -> {filter_result['method']} (медицинский: {filter_result['is_medical']}, уверенность: {filter_result['confidence']:.3f})")
     return filter_result['is_medical']
 
 # Utility: build prompt for AI
 def build_medical_prompt(user_profile, analyses, predictions, messages):
+    # Определяем тип вопроса и контекст
+    if len(messages) == 1:
+        question_type = "первичный медицинский вопрос"
+        context_instruction = "This is the first question in the conversation. Provide a comprehensive medical answer."
+    else:
+        question_type = "уточняющий вопрос или продолжение медицинской беседы"
+        # Анализируем контекст для лучших инструкций
+        context_is_medical, context_confidence = analyze_medical_context(messages)
+        if context_is_medical:
+            context_instruction = f"This is a follow-up question in a medical conversation (medical context confidence: {context_confidence:.2f}). Continue providing medical advice based on the conversation context."
+        else:
+            context_instruction = "This appears to be a follow-up question. Please ensure it's related to the medical discussion before answering."
+    
+    # Получаем последние сообщения для контекста
+    recent_messages = messages[-10:] if len(messages) > 10 else messages
+    
     prompt = (
-        "You are an experienced cardiologist. Answer only medical questions related to cardiology, heart health, lifestyle, medications, and test results. "
-        "Do not answer non-medical questions. If the question is not about medicine, politely refuse to answer.\n\n"
+        f"You are an experienced cardiologist. The user is asking a {question_type}.\n\n"
+        f"CONTEXT: {context_instruction}\n\n"
+        "IMPORTANT: You can answer:\n"
+        "- Medical questions related to cardiology, heart health, lifestyle, medications, and test results\n"
+        "- Follow-up questions that continue the medical discussion (like 'explain more', 'what else', 'how to improve')\n"
+        "- Clarification requests about your previous medical advice\n"
+        "- Questions about implementing your medical recommendations\n\n"
+        "Do NOT answer:\n"
+        "- Completely unrelated non-medical questions\n"
+        "- Questions about politics, entertainment, or other non-health topics\n\n"
         f"User profile: {user_profile}\n"
-        f"Recent analyses: {analyses}\n"
-        f"Recent predictions: {predictions}\n"
-        f"Chat history: {messages}\n"
-        "Give a detailed, clear, and personalized answer. If needed, recommend seeing a doctor in person."
+        f"Recent medical analyses: {analyses}\n"
+        f"Recent heart predictions: {predictions}\n"
+        f"Chat history (last 10 messages): {recent_messages}\n\n"
+        "Give a detailed, clear, and personalized medical answer. If needed, recommend seeing a doctor in person. "
+        "If this is a follow-up question, provide additional details or clarification based on the medical context. "
+        "Always maintain the medical focus of the conversation."
     )
     return prompt
 
@@ -114,11 +205,11 @@ async def get_or_create_active_chat(user: User, db: AsyncSession):
         if active_chat:
             return active_chat
     
-    # Если активного чата нет, создаем новый
+    # Если активного чата нет, создаем новый БЕЗ сообщений
     new_chat = CardioChat(
         user_id=user.id,
         messages=[],
-        summary="Новый чат создан. Задайте ваш вопрос о здоровье сердца.",
+        summary="",  # Пустой summary - будет заполнен первым сообщением пользователя
         is_active=True
     )
     db.add(new_chat)
@@ -151,11 +242,15 @@ async def get_active_chat(
     """Получить активный чат пользователя"""
     active_chat = await get_or_create_active_chat(current_user, db)
     
+    # Если чат пустой (нет сообщений), возвращаем пустой чат
+    if not active_chat.messages:
+        logger.info(f"Активный чат {active_chat.id} пустой - ожидается первое сообщение пользователя")
+    
     messages = [ChatMsgSchema(**msg) for msg in active_chat.messages]
     return ActiveChatResponse(
         chat_id=active_chat.id,
         messages=messages,
-        summary=active_chat.summary,
+        summary=active_chat.summary or "",  # Если summary пустой, возвращаем пустую строку
         created_at=active_chat.created_at.isoformat() + "Z",
         updated_at=active_chat.updated_at.isoformat() + "Z"
     )
@@ -174,11 +269,11 @@ async def create_new_chat(
             .values(is_active=False)
         )
     
-    # Создаем новый чат
+    # Создаем новый чат БЕЗ сообщений
     new_chat = CardioChat(
         user_id=current_user.id,
         messages=[],
-        summary="Новый чат создан. Задайте ваш вопрос о здоровье сердца.",
+        summary="",  # Пустой summary - будет заполнен первым сообщением пользователя
         is_active=True
     )
     db.add(new_chat)
@@ -201,33 +296,47 @@ async def medical_chat(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    # 1. Check topic
-    if not is_medical_question([m.dict() for m in data.messages]):
+    logger.info(f"Получен запрос на медицинский чат от пользователя {current_user.id}")
+    
+    # 1. Get or create active chat first
+    active_chat = await get_or_create_active_chat(current_user, db)
+    logger.info(f"Активный чат: {active_chat.id}, сообщений в истории: {len(active_chat.messages)}")
+
+    # 2. Build complete message history for context analysis
+    all_messages = active_chat.messages + [m.dict() for m in data.messages]
+    logger.info(f"Общее количество сообщений для анализа: {len(all_messages)}")
+    
+    # 3. Check if question is medical using context
+    is_medical = is_medical_question(all_messages)
+    logger.info(f"Результат проверки медицинского вопроса: {is_medical}")
+    
+    if not is_medical:
+        logger.warning(f"Вопрос не прошел медицинскую фильтрацию для пользователя {current_user.id}")
         return MedicalChatResponse(response="I can only answer medical questions related to cardiology and health.")
 
-    # 2. Get or create active chat
-    active_chat = await get_or_create_active_chat(current_user, db)
-
-    # 3. Get user profile
+    # 4. Get user profile
     user_profile = get_user_profile(current_user)
 
-    # 4. Get recent analyses and predictions
+    # 5. Get recent analyses and predictions
     analyses, predictions = await get_recent_medical_data(current_user.id, db)
+    logger.info(f"Получено анализов: {len(analyses)}, предсказаний: {len(predictions)}")
 
-    # 5. Build prompt with chat history
-    all_messages = active_chat.messages + [m.dict() for m in data.messages]
+    # 6. Build prompt with chat history
     prompt = build_medical_prompt(user_profile, analyses, predictions, all_messages)
+    logger.info(f"Построен промпт для ИИ длиной {len(prompt)} символов")
 
-    # 6. Get AI response
+    # 7. Get AI response
     try:
+        logger.info("Отправка запроса к ИИ...")
         ai_response = ai_service.get_cardio_analysis(
             age=None, pulse=None, risk=None, symptoms=prompt  # prompt instead of symptoms
         )
+        logger.info(f"Получен ответ от ИИ длиной {len(ai_response)} символов")
     except Exception as e:
-        logger.error(f"AI service error: {e}")
+        logger.error(f"Ошибка ИИ сервиса: {e}")
         raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")
 
-    # 7. Add messages to chat
+    # 8. Add messages to chat
     now = datetime.datetime.utcnow().isoformat() + "Z"
     
     # Добавляем сообщения пользователя
@@ -245,9 +354,12 @@ async def medical_chat(
         "timestamp": now
     })
     
-    # Обновляем summary
+    # Обновляем summary - берем первое сообщение пользователя в чате
     if not active_chat.summary and data.messages:
-        active_chat.summary = data.messages[0].content[:100]
+        # Если это первое сообщение в чате, используем его как summary
+        first_user_message = data.messages[0].content
+        active_chat.summary = first_user_message[:100] + ("..." if len(first_user_message) > 100 else "")
+        logger.info(f"Установлен summary чата: '{active_chat.summary}'")
     
     # Обновляем время
     active_chat.updated_at = datetime.datetime.utcnow()
@@ -257,6 +369,7 @@ async def medical_chat(
     flag_modified(active_chat, "messages")
     
     await db.commit()
+    logger.info(f"Чат обновлен, всего сообщений: {len(active_chat.messages)}")
     
     return MedicalChatResponse(response=ai_response)
 
@@ -398,7 +511,7 @@ async def delete_all_chats(
     active_chat = next((chat for chat in chats if chat.is_active), None)
     if active_chat:
         active_chat.messages = []
-        active_chat.summary = "Новый чат создан. Задайте ваш вопрос о здоровье сердца."
+        active_chat.summary = ""  # Пустой summary - будет заполнен следующим сообщением пользователя
         active_chat.updated_at = datetime.datetime.utcnow()
         # Явно уведомляем SQLAlchemy об изменениях в JSONB поле
         from sqlalchemy.orm.attributes import flag_modified
