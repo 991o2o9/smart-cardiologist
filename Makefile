@@ -95,6 +95,10 @@ health: ## Проверить здоровье приложения
 	@echo "Проверка здоровья приложения..."
 	curl -s http://localhost:8000/health | jq . || echo "Приложение не запущено"
 
+test-cors: ## Тестировать CORS конфигурацию
+	@echo "Тестирование CORS конфигурации..."
+	$(PYTHON) scripts/test_cors.py
+
 setup: check-env install setup-db migrate ## Полная настройка проекта
 	@echo "Проект настроен успешно!"
 

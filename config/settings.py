@@ -36,13 +36,19 @@ class Settings(BaseSettings):
     
     # AI Service
     GROQ_API_KEY: Optional[str] = None
+    GPT_API_KEY: Optional[str] = None
+    AI_PROVIDER: str = "GROQ"  # GROQ or GPT
     
     # Rate Limiting
     RATE_LIMIT: int = 5
     CACHE_TTL: int = 300
     
     # CORS Configuration
-    ALLOWED_ORIGINS: str = "http://localhost:5173"
+    ALLOWED_ORIGINS: str = ""  # Empty = allow all origins
+    ALLOWED_METHODS: str = "GET,POST,PUT,DELETE,OPTIONS"
+    ALLOWED_HEADERS: str = "*"
+    ALLOW_CREDENTIALS: bool = True
+    MAX_AGE: int = 600
     
     # Model Configuration
     MODEL_PATH: str = "data/processed/model.pkl"

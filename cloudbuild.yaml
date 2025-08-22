@@ -7,7 +7,7 @@ substitutions:
   _DB_PASSWORD: "mypassword"
   _DB_NAME: "mydb"
   _SECRET_KEY: "your-super-secret-key-change-in-production"
-  _ALLOWED_ORIGINS: "http://localhost:5173"
+  _ALLOWED_ORIGINS: ""  # Empty = allow all origins
   _GROQ_API_KEY: "gsk_xxx"
   _MAIL_USERNAME: "1kkro123@gmail.com"
   _MAIL_PASSWORD: "jwmz mzak xwzy xfjn"
@@ -72,6 +72,10 @@ steps:
         RATE_LIMIT=5,
         CACHE_TTL=300,
         ALLOWED_ORIGINS=${_ALLOWED_ORIGINS},
+        ALLOWED_METHODS=GET,POST,PUT,DELETE,OPTIONS,
+        ALLOWED_HEADERS=*,
+        ALLOW_CREDENTIALS=true,
+        MAX_AGE=600,
         MODEL_PATH=data/processed/model.pkl,
         MAIL_USERNAME=${_MAIL_USERNAME},
         MAIL_PASSWORD=${_MAIL_PASSWORD},

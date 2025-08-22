@@ -12,7 +12,7 @@
 ## 🎯 Features
 
 - **Real-time Heart Disease Predictions**: Instant risk assessment using ML models
-- **AI Cardio-Assistant**: Get consultations from artificial intelligence
+- **AI Cardio-Assistant**: Get consultations from artificial intelligence (supports both GROQ and GPT providers)
 - **Advanced Authentication System**: JWT with refresh tokens for long-term sessions
 - **End-to-End Data Encryption**: All medical data encrypted for maximum privacy
 - **Analysis History**: Save and view all conducted analyses
@@ -42,6 +42,8 @@
 | **scikit-learn** | Machine learning | Latest |
 | **pandas** | Data manipulation | Latest |
 | **numpy** | Numerical computing | Latest |
+| **groq** | AI assistant (GROQ) | Latest |
+| **openai** | AI assistant (GPT) | Latest |
 | **python-dotenv** | Environment variables | Latest |
 | **pydantic** | Data validation | Latest |
 
@@ -207,9 +209,11 @@ PORT=8000
 DEBUG=True
 
 # CORS Configuration
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
-ALLOWED_METHODS=GET,POST,PUT,DELETE
+ALLOWED_ORIGINS=  # Empty = allow all origins, or specify domains: http://localhost:3000,https://yourdomain.com
+ALLOWED_METHODS=GET,POST,PUT,DELETE,OPTIONS
 ALLOWED_HEADERS=*
+ALLOW_CREDENTIALS=true
+MAX_AGE=600
 
 # Logging
 LOG_LEVEL=INFO
@@ -348,6 +352,12 @@ curl -X POST "http://localhost:8000/api/v1/auth/reset-password" \
 - **GET** `/auth/me` - Get current user info
 
 ### 🤖 AI Cardio-Assistant Endpoints
+
+**Supported AI Providers:**
+- **GROQ**: Fast and efficient AI responses using Groq's infrastructure
+- **GPT**: Advanced AI responses using GPT models via AIMLAPI
+
+*Configure your preferred provider using the `AI_PROVIDER` environment variable.*
 ```http
 POST /api/v1/cardio-assistant/
 Authorization: Bearer YOUR_JWT_TOKEN
@@ -931,8 +941,14 @@ telnet smtp.gmail.com 587
 
 **Issue**: CORS errors in browser
 ```bash
-# Solution: Update ALLOWED_ORIGINS in .env file
-ALLOWED_ORIGINS=http://localhost:3000,http://your-frontend-url
+# Solution 1: Allow all origins (development)
+ALLOWED_ORIGINS=  # Empty = allow all origins
+
+# Solution 2: Specify allowed domains (production)
+ALLOWED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+
+# Check current CORS configuration
+curl http://localhost:8000/config | jq '.allowed_origins'
 ```
 
 **Issue**: JWT token expired
@@ -1241,14 +1257,20 @@ SENTRY_DSN=your-sentry-dsn-here
 METRICS_ENABLED=True
 ```
 
+#### AI Service Configuration
+```env
+# Choose AI provider: GROQ or GPT
+AI_PROVIDER=GROQ
+GROQ_API_KEY=your-groq-api-key-here
+GPT_API_KEY=your-gpt-api-key-here
+```
+
 #### ML Model Configuration
 ```env
 MODEL_PATH=models/heart_disease_model.pkl
 MODEL_VERSION=1.2.0
 MODEL_THRESHOLD=0.5
 MODEL_CACHE_SIZE=100
-AI_SERVICE_URL=http://localhost:8001
-AI_API_KEY=your-ai-service-api-key
 ```
 
 ---
