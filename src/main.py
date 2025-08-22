@@ -12,8 +12,11 @@ from src.api.auth import router as auth_router
 from src.api.analytics import router as analytics_router
 
 # Import services
-from src.services.database import init_db, close_db, check_db_connection
+from src.services.database import init_db, close_db, check_db_connection, engine
 from src.services.email_service import EmailService
+
+# Import models
+from src.models import Base
 
 # Setup logging
 logging.basicConfig(
@@ -26,14 +29,17 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifecycle management"""
-    # Startup
     logger.info("Starting Smart Cardiologist API...")
-    
+
     try:
         # Initialize database
         await init_db()
-        logger.info("Database initialized successfully")
-        
+
+        # Создаём таблицы, если их нет
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+        logger.info("Database initialized and tables ensured")
+
         # Check email server connection
         email_service = EmailService()
         email_connected = await email_service.test_connection()
@@ -41,14 +47,13 @@ async def lifespan(app: FastAPI):
             logger.info("Email service connected successfully")
         else:
             logger.warning("Email service connection failed - check configuration")
-        
+
     except Exception as e:
         logger.error(f"Failed to initialize application: {e}")
         raise
-    
+
     yield
-    
-    # Shutdown
+
     logger.info("Shutting down Smart Cardiologist API...")
     await close_db()
     logger.info("Application shutdown complete")
@@ -92,15 +97,15 @@ async def root():
 @app.get("/health")
 async def health_check():
     """General application health check"""
-    try:        
+    try:
         db_healthy = await check_db_connection()
-        
+
         return {
             "status": "healthy" if db_healthy else "degraded",
             "service": "Smart Cardiologist API",
             "version": "1.0.0",
             "database": "connected" if db_healthy else "disconnected",
-            "timestamp": "2024-01-01T00:00:00Z"  
+            "timestamp": "2024-01-01T00:00:00Z"
         }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -111,8 +116,6 @@ async def health_check():
 async def get_config():
     """
     Get application configuration (without sensitive data)
-    
-    Returns basic configuration information
     """
     return {
         "debug": settings.DEBUG,
@@ -128,8 +131,8 @@ async def get_config():
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(
-        app, 
-        host="0.0.0.0", 
+        app,
+        host="0.0.0.0",
         port=8000,
         log_level="info"
     )
