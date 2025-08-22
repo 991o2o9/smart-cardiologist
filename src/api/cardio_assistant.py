@@ -118,7 +118,7 @@ async def get_or_create_active_chat(user: User, db: AsyncSession):
     new_chat = CardioChat(
         user_id=user.id,
         messages=[],
-        summary="",
+        summary="Новый чат создан. Задайте ваш вопрос о здоровье сердца.",
         is_active=True
     )
     db.add(new_chat)
@@ -178,7 +178,7 @@ async def create_new_chat(
     new_chat = CardioChat(
         user_id=current_user.id,
         messages=[],
-        summary="",
+        summary="Новый чат создан. Задайте ваш вопрос о здоровье сердца.",
         is_active=True
     )
     db.add(new_chat)
@@ -251,6 +251,10 @@ async def medical_chat(
     
     # Обновляем время
     active_chat.updated_at = datetime.datetime.utcnow()
+    
+    # Явно уведомляем SQLAlchemy об изменениях в JSONB поле
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(active_chat, "messages")
     
     await db.commit()
     
