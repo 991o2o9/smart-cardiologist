@@ -18,8 +18,9 @@ COPY requirements.txt .
 # Устанавливаем Python зависимости
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем код приложения и артефакты
+# Копируем код приложения и все данные
 COPY . .
+COPY data/ /app/data/
 
 # Делаем start.sh исполняемым
 RUN chmod +x scripts/start.sh

@@ -75,12 +75,10 @@ logs/
 *.temp
 
 # ────────────────
-# Data (оставляем только то, что нужно!)
-data/*
-!data/processed/
-!data/processed/model.pkl
-!data/processed/medical_classifier.pkl
+# Data (копируем всё, не игнорируем!)
+# (если захочешь игнорировать — вернём фильтрацию)
+# data/*
 
 # ────────────────
-# ML scripts (оставляем только нужные)
+# ML scripts
 !scripts/
