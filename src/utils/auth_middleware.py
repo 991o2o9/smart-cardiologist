@@ -2,10 +2,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from src.services.database import get_db
-from src.services.auth_service import AuthService
-from src.models.database import User
-from src.models.auth_schemas import TokenData
+from services.database import get_db
+from services.auth_service import AuthService
+from models.database import User
+from models.auth_schemas import TokenData
 import logging
 from typing import Optional
 

@@ -10,7 +10,7 @@ import logging
 # Добавляем корневую директорию в путь
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.services.ml_filter_service import MedicalQuestionClassifier
+from services.ml_filter_service import MedicalQuestionClassifier
 
 # Настройка логирования
 logging.basicConfig(

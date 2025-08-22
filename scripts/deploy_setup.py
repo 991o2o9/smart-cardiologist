@@ -12,9 +12,9 @@ from pathlib import Path
 # Добавляем корневую директорию в путь
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.services.three_level_filter import get_medical_filter
-from src.services.ml_filter_service import get_medical_classifier
-from src.utils.medical_keywords import quick_medical_filter
+from services.three_level_filter import get_medical_filter
+from services.ml_filter_service import get_medical_classifier
+from utils.medical_keywords import quick_medical_filter
 
 # Настройка логирования
 logging.basicConfig(

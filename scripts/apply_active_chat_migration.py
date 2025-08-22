@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from alembic.config import Config
 from alembic import command
-from src.services.database import get_db
+from services.database import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
 

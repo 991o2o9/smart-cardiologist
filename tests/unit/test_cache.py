@@ -1,6 +1,6 @@
 import pytest
 import time
-from src.utils.cache import Cache
+from utils.cache import Cache
 
 
 class TestCache:

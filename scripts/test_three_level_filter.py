@@ -10,9 +10,9 @@ import logging
 # Добавляем корневую директорию в путь
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.services.three_level_filter import get_medical_filter
-from src.utils.medical_keywords import quick_medical_filter
-from src.services.ml_filter_service import get_medical_classifier
+from services.three_level_filter import get_medical_filter
+from utils.medical_keywords import quick_medical_filter
+from services.ml_filter_service import get_medical_classifier
 
 # Настройка логирования
 logging.basicConfig(

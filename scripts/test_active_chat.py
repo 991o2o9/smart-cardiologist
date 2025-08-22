@@ -11,8 +11,8 @@ import json
 # Добавляем путь к проекту
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from src.services.database import get_db
-from src.models.database import User, CardioChat
+from services.database import get_db
+from models.database import User, CardioChat
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 

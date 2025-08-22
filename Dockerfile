@@ -35,6 +35,6 @@ USER app
 EXPOSE 8000
 
 # Устанавливаем PYTHONPATH
-ENV PYTHONPATH=/app
+ENV PYTHONPATH=/app/src
 
 ENTRYPOINT ["/app/docker-entrypoint.sh"]

@@ -11,4 +11,4 @@ fi
 
 # Запускаем приложение
 echo "✅ Старт uvicorn..."
-exec uvicorn src.main:app --host 0.0.0.0 --port 8000
+exec uvicorn main:app --host 0.0.0.0 --port 8000
