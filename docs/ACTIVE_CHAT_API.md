@@ -79,6 +79,46 @@ Authorization: Bearer {access_token}
 }
 ```
 
+### 4. Удалить конкретный чат
+
+**DELETE** `/cardio-assistant/history/{chat_id}`
+
+Удаляет конкретный чат из истории. Активный чат не может быть удален.
+
+**Параметры:**
+- `chat_id` (int) - ID чата для удаления
+
+**Заголовки:**
+```
+Authorization: Bearer {access_token}
+```
+
+**Ответ:**
+```json
+{
+  "message": "Чат успешно удален"
+}
+```
+
+### 5. Удалить всю историю чатов
+
+**DELETE** `/cardio-assistant/history`
+
+Удаляет всю историю чатов пользователя. Активный чат не удаляется, но его сообщения очищаются.
+
+**Заголовки:**
+```
+Authorization: Bearer {access_token}
+```
+
+**Ответ:**
+```json
+{
+  "message": "Вся история чатов успешно удалена",
+  "deleted_count": 3
+}
+```
+
 ## Обновленные эндпоинты
 
 ### Отправка сообщения
@@ -191,6 +231,46 @@ localStorage.setItem('activeChatId', result.chat_id);
 clearMessages();
 ```
 
+### Удаление конкретного чата:
+```javascript
+// Удаляем конкретный чат
+const response = await fetch(`/cardio-assistant/history/${chatId}`, {
+  method: 'DELETE',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+
+if (response.ok) {
+  const result = await response.json();
+  console.log(result.message);
+  // Обновить список чатов
+} else {
+  const error = await response.json();
+  console.error(error.detail);
+}
+```
+
+### Удаление всей истории:
+```javascript
+// Удаляем всю историю чатов
+const response = await fetch('/cardio-assistant/history', {
+  method: 'DELETE',
+  headers: {
+    'Authorization': `Bearer ${token}`
+  }
+});
+
+if (response.ok) {
+  const result = await response.json();
+  console.log(`${result.message}. Удалено чатов: ${result.deleted_count}`);
+  // Очистить интерфейс
+} else {
+  const error = await response.json();
+  console.error(error.detail);
+}
+```
+
 ## Обработка ошибок
 
 ### 404 - Чат не найден
@@ -211,6 +291,13 @@ clearMessages();
 ```json
 {
   "detail": "AI service error: ..."
+}
+```
+
+### 400 - Нельзя удалить активный чат
+```json
+{
+  "detail": "Cannot delete active chat. Please activate another chat first."
 }
 ```
 

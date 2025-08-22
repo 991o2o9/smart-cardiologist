@@ -10,7 +10,7 @@ from src.utils.auth_middleware import get_current_user
 from src.services.three_level_filter import get_medical_filter
 import logging
 import datetime
-from src.models.schemas import CardioChatSummary, CardioChatDetail, CardioChatMessage as ChatMsgSchema, ActiveChatResponse, CreateChatResponse
+from src.models.schemas import CardioChatSummary, CardioChatDetail, CardioChatMessage as ChatMsgSchema, ActiveChatResponse, CreateChatResponse, DeleteChatResponse, DeleteAllChatsResponse
 
 logger = logging.getLogger(__name__)
 
@@ -343,3 +343,70 @@ async def activate_chat(
     await db.commit()
     
     return {"message": "Chat activated successfully"}
+
+@router.delete("/history/{chat_id}", response_model=DeleteChatResponse)
+async def delete_chat(
+    chat_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Удалить конкретный чат"""
+    # Проверяем что чат принадлежит пользователю
+    result = await db.execute(
+        select(CardioChat)
+        .where(CardioChat.id == chat_id, CardioChat.user_id == current_user.id)
+    )
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    
+    # Проверяем, не является ли это активным чатом
+    if chat.is_active:
+        raise HTTPException(status_code=400, detail="Cannot delete active chat. Please activate another chat first.")
+    
+    # Удаляем чат
+    await db.delete(chat)
+    await db.commit()
+    
+    return DeleteChatResponse(message="Чат успешно удален")
+
+@router.delete("/history", response_model=DeleteAllChatsResponse)
+async def delete_all_chats(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Удалить всю историю чатов пользователя"""
+    # Получаем все чаты пользователя
+    result = await db.execute(
+        select(CardioChat)
+        .where(CardioChat.user_id == current_user.id)
+    )
+    chats = result.scalars().all()
+    
+    if not chats:
+        return DeleteAllChatsResponse(message="История чатов пуста", deleted_count=0)
+    
+    # Подсчитываем количество чатов для удаления (исключая активный)
+    chats_to_delete = [chat for chat in chats if not chat.is_active]
+    deleted_count = len(chats_to_delete)
+    
+    # Удаляем неактивные чаты
+    for chat in chats_to_delete:
+        await db.delete(chat)
+    
+    # Если есть активный чат, очищаем его сообщения и обновляем summary
+    active_chat = next((chat for chat in chats if chat.is_active), None)
+    if active_chat:
+        active_chat.messages = []
+        active_chat.summary = "Новый чат создан. Задайте ваш вопрос о здоровье сердца."
+        active_chat.updated_at = datetime.datetime.utcnow()
+        # Явно уведомляем SQLAlchemy об изменениях в JSONB поле
+        from sqlalchemy.orm.attributes import flag_modified
+        flag_modified(active_chat, "messages")
+    
+    await db.commit()
+    
+    return DeleteAllChatsResponse(
+        message="Вся история чатов успешно удалена",
+        deleted_count=deleted_count
+    )

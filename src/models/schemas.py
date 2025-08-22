@@ -136,3 +136,10 @@ class ActiveChatResponse(BaseModel):
 class CreateChatResponse(BaseModel):
     chat_id: int
     message: str = "Новый чат создан"
+
+class DeleteChatResponse(BaseModel):
+    message: str = "Чат успешно удален"
+
+class DeleteAllChatsResponse(BaseModel):
+    message: str = "Вся история чатов успешно удалена"
+    deleted_count: int
