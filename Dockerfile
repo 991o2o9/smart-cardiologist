@@ -39,5 +39,7 @@ USER app
 # Открываем порт
 EXPOSE 8080
 
+ENV PYTHONPATH=/app
+
 # Запускаем через start.sh
 CMD ["bash", "scripts/start.sh"]
