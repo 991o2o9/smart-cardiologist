@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     libpq-dev \
+    bash \
     && rm -rf /var/lib/apt/lists/*
 
 # Копируем файлы зависимостей
@@ -20,16 +21,15 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Копируем код приложения
 COPY . .
 
-# Ensure start script is executable
+# Делаем start.sh исполняемым (после COPY!)
 RUN chmod +x scripts/start.sh
 
 # Создаем директории для данных
 RUN mkdir -p data/processed data/medicalQ data/nonMedicalQ logs
 
-# Обучаем ML-модель (если файл модели не существует)
-RUN if [ ! -f data/processed/medical_classifier.pkl ]; then \
-        python scripts/train_medical_classifier.py; \
-    fi
+# ⚠️ Обучение модели — лучше вынести в CI/CD (build будет долгий). 
+# Но если нужно прямо в Docker:
+RUN test -f data/processed/medical_classifier.pkl || python scripts/train_medical_classifier.py
 
 # Создаем пользователя для безопасности
 RUN useradd --create-home --shell /bin/bash app && \
@@ -39,5 +39,5 @@ USER app
 # Открываем порт
 EXPOSE 8000
 
-# Команда для запуска приложения
-CMD ["/bin/bash", "scripts/start.sh"]
+# Запускаем через start.sh
+CMD ["bash", "scripts/start.sh"]

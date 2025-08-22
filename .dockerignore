@@ -1,41 +1,56 @@
+# ────────────────
 # Git
 .git
 .gitignore
 
-# Python
-__pycache__
+# ────────────────
+# Python cache
+__pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-env
+*.so
+
+# ────────────────
+# Virtual environments
+venv/
+env/
+ENV/
+
+# ────────────────
+# Package managers
 pip-log.txt
 pip-delete-this-directory.txt
 .tox
+.poetry/
+Pipfile
+Pipfile.lock
+poetry.lock
+
+# ────────────────
+# Testing
 .coverage
 .coverage.*
 .cache
 nosetests.xml
 coverage.xml
 *.cover
-*.log
-.git
-.mypy_cache
-.pytest_cache
-.hypothesis
+.mypy_cache/
+.pytest_cache/
+.hypothesis/
+tests/
+pytest.ini
 
-# Virtual environments
-venv/
-env/
-ENV/
-
-# IDE
+# ────────────────
+# Editors / IDE
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
 
+# ────────────────
 # OS
 .DS_Store
 .DS_Store?
@@ -45,21 +60,34 @@ ENV/
 ehthumbs.db
 Thumbs.db
 
-# Documentation
+# ────────────────
+# Docs
 docs/
 *.md
 README.md
-
-# Development files
 Makefile
-scripts/
-tests/
-pytest.ini
 
-# Logs
+# ────────────────
+# Logs & tmp
 logs/
 *.log
-
-# Temporary files
 *.tmp
 *.temp
+
+# ────────────────
+# Data (оставляем только готовую модель!)
+data/raw/
+data/interim/
+data/external/
+data/nonMedicalQ/
+data/medicalQ/
+
+# ────────────────
+# ML artifacts (только обученная модель нужна!)
+!data/processed/
+!data/processed/medical_classifier.pkl
+!data/processed/model.pkl
+
+# ────────────────
+# Scripts (оставляем нужные!)
+!scripts/
