@@ -80,7 +80,6 @@ data/*
 !data/processed/
 !data/processed/model.pkl
 !data/processed/medical_classifier.pkl
-!data/feature_means.json
 
 # ────────────────
 # ML scripts (оставляем только нужные)

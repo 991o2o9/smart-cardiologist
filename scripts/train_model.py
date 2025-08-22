@@ -23,8 +23,10 @@ def load_data(data_path: str) -> pd.DataFrame:
         raise FileNotFoundError(f"Data file not found: {data_path}")
     
     # Load data
-    if data_path.endswith('.xls') or data_path.endswith('.xlsx'):
-        data = pd.read_excel(data_path)
+    if data_path.endswith('.xls'):
+        data = pd.read_excel(data_path, engine='xlrd')
+    elif data_path.endswith('.xlsx'):
+        data = pd.read_excel(data_path, engine='openpyxl')
     elif data_path.endswith('.csv'):
         data = pd.read_csv(data_path)
     else:
@@ -102,7 +104,7 @@ def save_model(model, scaler, columns, output_path: str):
 def main():
     """Main training function"""
     # Paths
-    data_path = "data/raw/heart.xls"
+    data_path = "data/raw/heart.csv"
     output_path = "data/processed/model.pkl"
     
     try:
