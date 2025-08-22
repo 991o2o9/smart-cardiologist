@@ -16,13 +16,19 @@ substitutions:
 steps:
   # Сборка Docker-образа
   - name: 'gcr.io/cloud-builders/docker'
-    args: ["build", "-t", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA", "."]
+    args:
+      - build
+      - -t
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:$SHORT_SHA"
+      - "."
 
   # Загрузка образа в Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: ["push", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA"]
+    args:
+      - push
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:$SHORT_SHA"
 
-  # Деплой в Cloud Run (создание сервиса)
+  # Деплой в Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -30,14 +36,14 @@ steps:
       - deploy
       - ${_IMAGE}
       - --image
-      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
+      - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:$SHORT_SHA"
       - --region
       - ${_REGION}
       - --platform
       - managed
       - --allow-unauthenticated
       - --service-account
-      - cloud-run-sa@${PROJECT_ID}.iam.gserviceaccount.com
+      - "cloud-run-sa@${PROJECT_ID}.iam.gserviceaccount.com"
       - --add-cloudsql-instances
       - ${_INSTANCE_CONNECTION_NAME}
 
@@ -80,4 +86,4 @@ steps:
         PORT=8080
 
 images:
-  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA"
+  - "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO}/${_IMAGE}:$SHORT_SHA"
