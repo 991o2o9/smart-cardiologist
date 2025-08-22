@@ -1,5 +1,4 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.orm import sessionmaker
 from sqlalchemy import text
 from config.settings import get_database_url
 from src.models.database import Base
@@ -7,12 +6,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Создаем асинхронный движок
+# Создаем асинхронный движок с пулом соединений
 engine = create_async_engine(
     get_database_url(),
-    echo=False,  # Установите True для отладки SQL запросов
-    pool_pre_ping=True,
-    pool_recycle=300,
+    echo=False,            # Логировать SQL-запросы при необходимости
+    pool_pre_ping=True,    # Проверка соединений перед использованием
+    pool_recycle=1800,     # Пересоздавать соединения каждые 30 минут
+    pool_size=5,           # Минимальное количество соединений
+    max_overflow=10,       # Дополнительные соединения при нагрузке
+    pool_timeout=30        # Таймаут ожидания соединения (сек)
 )
 
 # Создаем фабрику сессий
@@ -41,12 +43,12 @@ async def init_db():
     try:
         async with engine.begin() as conn:
             # Проверяем подключение
-            result = await conn.execute(text("SELECT 1"))
+            await conn.execute(text("SELECT 1"))
             logger.info("Database connection test successful")
             
             # Проверяем, существуют ли таблицы
             try:
-                result = await conn.execute(text("SELECT COUNT(*) FROM users"))
+                await conn.execute(text("SELECT COUNT(*) FROM users"))
                 logger.info("Database tables already exist, skipping creation")
             except Exception:
                 # Создаем все таблицы только если их нет
@@ -68,7 +70,7 @@ async def check_db_connection():
     """Проверить подключение к базе данных"""
     try:
         async with engine.begin() as conn:
-            result = await conn.execute(text("SELECT 1"))
+            await conn.execute(text("SELECT 1"))
             return True
     except Exception as e:
         logger.error(f"Database connection check failed: {e}")
