@@ -37,7 +37,7 @@ RUN useradd --create-home --shell /bin/bash app && \
 USER app
 
 # Открываем порт
-EXPOSE 8000
+EXPOSE 8080
 
 # Запускаем через start.sh
 CMD ["bash", "scripts/start.sh"]
