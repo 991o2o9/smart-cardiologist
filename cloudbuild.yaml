@@ -14,12 +14,15 @@ substitutions:
   _MAIL_FROM: "1kkro123@gmail.com"
 
 steps:
+  # Сборка Docker-образа
   - name: 'gcr.io/cloud-builders/docker'
     args: ["build", "-t", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA", "."]
 
+  # Загрузка образа в Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
     args: ["push", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA"]
 
+  # Деплой в Cloud Run (создание сервиса)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -38,6 +41,7 @@ steps:
       - --add-cloudsql-instances
       - ${_INSTANCE_CONNECTION_NAME}
 
+  # Обновление переменных окружения
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
@@ -76,4 +80,4 @@ steps:
         PORT=8080
 
 images:
-  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA
+  - "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPO}/${_IMAGE}:$SHORT_SHA"
