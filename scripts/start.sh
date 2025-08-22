@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Apply database migrations
 echo "Running database migrations..."
-alembic upgrade head
+#alembic upgrade head
 
 # Start the application (Cloud Run provides $PORT)
 PORT="${PORT:-8000}"
