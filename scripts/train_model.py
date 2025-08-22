@@ -104,7 +104,7 @@ def save_model(model, scaler, columns, output_path: str):
 def main():
     """Main training function"""
     # Paths
-    data_path = "data/raw/heart.csv"
+    data_path = "data/raw/heart.xls"
     output_path = "data/processed/model.pkl"
     
     try:
