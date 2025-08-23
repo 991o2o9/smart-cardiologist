@@ -7,6 +7,10 @@
 
 **Smart Cardiologist** is an intelligent Python service built with **FastAPI** that helps predict heart diseases based on patient medical data. The project leverages a pre-trained machine learning model, AI assistant, and includes a comprehensive user authentication system.
 
+## 🌐 Frontend
+**Explore the frontend of Smart Cardiologist**:  
+[**Smart Cardiologist Client Repository**](https://github.com/991o2o9/smart-cardiologist-client.git)
+
 ---
 
 ## 🎯 Features
@@ -43,11 +47,11 @@
 | **pandas** | Data manipulation | Latest |
 | **numpy** | Numerical computing | Latest |
 | **groq** | AI assistant (GROQ) | Latest |
-| **openai** | AI assistant (GPT) | Latest |
+| **openai** | AI assistant (GPT-5) | Latest |
 | **python-dotenv** | Environment variables | Latest |
 | **pydantic** | Data validation | Latest |
 
----
+--- 
 
 ## 📂 Project Structure
 
