@@ -37,6 +37,10 @@ class AIService:
     
     def _create_groq_completion(self, messages: list, max_tokens: int = 500, temperature: float = 0.7) -> str:
         """Create completion using Groq API"""
+        import time
+        start_time = time.time()
+        timeout = 30  # 30 seconds timeout
+        
         completion = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
@@ -46,10 +50,19 @@ class AIService:
             reasoning_effort="medium",
             stream=False
         )
+        
+        # Check timeout
+        if time.time() - start_time > timeout:
+            raise Exception("Request timeout exceeded")
+            
         return completion.choices[0].message.content.strip()
     
     def _create_gpt_completion(self, messages: list, max_tokens: int = 500, temperature: float = 0.7) -> str:
         """Create completion using GPT API (AIMLAPI)"""
+        import time
+        start_time = time.time()
+        timeout = 30  # 30 seconds timeout
+        
         response = self.client.chat.completions.create(
             model=self.model,
             messages=messages,
@@ -58,18 +71,60 @@ class AIService:
             frequency_penalty=1,
             max_tokens=max_tokens,
         )
+        
+        # Check timeout
+        if time.time() - start_time > timeout:
+            raise Exception("Request timeout exceeded")
+            
         return response.choices[0].message.content.strip()
     
     def _create_completion(self, messages: list, max_tokens: int = 500, temperature: float = 0.7) -> str:
         """Create completion using the selected provider"""
-        try:
-            if self.provider == "GROQ":
-                return self._create_groq_completion(messages, max_tokens, temperature)
-            elif self.provider == "GPT":
-                return self._create_gpt_completion(messages, max_tokens, temperature)
-        except Exception as e:
-            logger.error(f"Error when contacting {self.provider} AI: {str(e)}")
-            raise Exception(f"Error when contacting {self.provider} AI: {str(e)}")
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                if self.provider == "GROQ":
+                    response = self._create_groq_completion(messages, max_tokens, temperature)
+                elif self.provider == "GPT":
+                    response = self._create_gpt_completion(messages, max_tokens, temperature)
+                
+                # Check if response seems complete (not cut off mid-sentence)
+                if response and len(response.strip()) > 50:
+                    # Check for common incomplete patterns
+                    incomplete_patterns = [
+                        "**", "##", "###", "####", "****", "*****",  # Unfinished markdown
+                        "...", "..", ".",  # Dots at the end
+                        "**3. Weight", "**4.", "**5.",  # Unfinished numbered lists
+                        "Below is a", "Here are some", "Additional"  # Unfinished sentences
+                    ]
+                    
+                    is_incomplete = any(pattern in response for pattern in incomplete_patterns)
+                    
+                    if not is_incomplete:
+                        return response
+                    else:
+                        logger.warning(f"Response appears incomplete on attempt {attempt + 1}, retrying...")
+                        # Increase tokens for retry
+                        max_tokens = int(max_tokens * 1.5)
+                        continue
+                else:
+                    logger.warning(f"Response too short on attempt {attempt + 1}, retrying...")
+                    continue
+                    
+            except Exception as e:
+                logger.error(f"Error on attempt {attempt + 1} when contacting {self.provider} AI: {str(e)}")
+                if attempt == max_retries - 1:  # Last attempt
+                    raise Exception(f"Error when contacting {self.provider} AI after {max_retries} attempts: {str(e)}")
+                continue
+        
+        # If all retries failed, return a fallback response
+        logger.error("All retry attempts failed, returning fallback response")
+        return (
+            "I apologize, but I'm experiencing technical difficulties providing a complete response. "
+            "Please try again, or contact your healthcare provider for personalized medical advice. "
+            "For general heart health, focus on: maintaining a healthy diet, regular exercise, "
+            "managing stress, and avoiding smoking."
+        )
     
     def get_cardio_analysis(self, age: int, pulse: int, risk: str, symptoms: str) -> str:
         """
@@ -89,11 +144,17 @@ class AIService:
             f"Pulse: {pulse}\n"
             f"Risk: {risk}\n"
             f"Symptoms: {symptoms}\n\n"
-            f"Give a clear explanation of the condition, lifestyle advice and respond as a cardiologist."
+            f"Please provide a comprehensive cardiological analysis including:\n"
+            f"1. Brief assessment of the current condition\n"
+            f"2. Specific lifestyle recommendations (diet, exercise, stress management)\n"
+            f"3. When to seek medical attention\n"
+            f"4. Preventive measures\n\n"
+            f"Respond as a professional cardiologist with clear, actionable advice. "
+            f"Keep the response comprehensive but well-structured."
         )
         
         messages = [{"role": "user", "content": user_prompt}]
-        return self._create_completion(messages, max_tokens=500, temperature=0.7)
+        return self._create_completion(messages, max_tokens=2000, temperature=0.7)
     
     def get_health_advice(self, condition: str) -> str:
         """
@@ -107,11 +168,18 @@ class AIService:
         """
         user_prompt = (
             f"Condition: {condition}\n\n"
-            f"Give general health and lifestyle advice for this condition."
+            f"Please provide comprehensive health and lifestyle advice including:\n"
+            f"1. Dietary recommendations\n"
+            f"2. Exercise guidelines\n"
+            f"3. Lifestyle modifications\n"
+            f"4. Preventive measures\n"
+            f"5. When to consult a healthcare provider\n\n"
+            f"Give practical, actionable advice that people can implement in their daily lives. "
+            f"Structure the response clearly with bullet points or numbered lists."
         )
         
         messages = [{"role": "user", "content": user_prompt}]
-        return self._create_completion(messages, max_tokens=300, temperature=0.7)
+        return self._create_completion(messages, max_tokens=1500, temperature=0.7)
     
     def is_healthy(self) -> bool:
         """
