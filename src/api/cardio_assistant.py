@@ -328,10 +328,31 @@ async def medical_chat(
     # 7. Get AI response
     try:
         logger.info("Отправка запроса к ИИ...")
-        # Создаем сообщения для AI сервиса
-        messages = [{"role": "user", "content": prompt}]
-        ai_response = ai_service._create_completion(messages, max_tokens=8000, temperature=0.7)
-        logger.info(f"Получен ответ от ИИ длиной {len(ai_response)} символов")
+        
+        # Получаем последнее сообщение пользователя для анализа
+        last_user_message = data.messages[-1].content if data.messages else ""
+        
+        # Подготавливаем историю диалога для контекста
+        conversation_history = []
+        
+        # Добавляем последние сообщения из истории чата (если есть)
+        if active_chat.messages:
+            # Берем последние 5 сообщений из истории
+            recent_history = active_chat.messages[-5:]
+            conversation_history.extend(recent_history)
+        
+        # Добавляем текущие сообщения пользователя
+        for message in data.messages:
+            conversation_history.append({
+                "role": message.role,
+                "content": message.content
+            })
+        
+        logger.info(f"Подготовлена история диалога: {len(conversation_history)} сообщений")
+        
+        # Используем адаптивный ответ с контекстом
+        ai_response = ai_service.get_adaptive_response(last_user_message, conversation_history)
+        logger.info(f"Получен адаптивный ответ от ИИ длиной {len(ai_response)} символов")
         
         # Дополнительная проверка ответа
         if ai_response and len(ai_response.strip()) > 0:
