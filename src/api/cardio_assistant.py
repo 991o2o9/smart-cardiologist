@@ -328,10 +328,18 @@ async def medical_chat(
     # 7. Get AI response
     try:
         logger.info("Отправка запроса к ИИ...")
-        ai_response = ai_service.get_cardio_analysis(
-            age=None, pulse=None, risk=None, symptoms=prompt  # prompt instead of symptoms
-        )
+        # Создаем сообщения для AI сервиса
+        messages = [{"role": "user", "content": prompt}]
+        ai_response = ai_service._create_completion(messages, max_tokens=8000, temperature=0.7)
         logger.info(f"Получен ответ от ИИ длиной {len(ai_response)} символов")
+        
+        # Дополнительная проверка ответа
+        if ai_response and len(ai_response.strip()) > 0:
+            logger.info(f"Ответ успешно получен. Первые 100 символов: {ai_response[:100]}...")
+            logger.info(f"Последние 100 символов: ...{ai_response[-100:]}")
+        else:
+            logger.warning("Получен пустой ответ от ИИ")
+            
     except Exception as e:
         logger.error(f"Ошибка ИИ сервиса: {e}")
         raise HTTPException(status_code=500, detail=f"AI service error: {str(e)}")

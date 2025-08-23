@@ -35,11 +35,11 @@ class AIService:
         else:
             raise ValueError(f"Unsupported AI provider: {self.provider}. Use 'GROQ' or 'GPT'")
     
-    def _create_groq_completion(self, messages: list, max_tokens: int = 500, temperature: float = 0.7) -> str:
+    def _create_groq_completion(self, messages: list, max_tokens: int = 4000, temperature: float = 0.7) -> str:
         """Create completion using Groq API"""
         import time
         start_time = time.time()
-        timeout = 30  # 30 seconds timeout
+        timeout = 60  # Увеличиваем таймаут до 60 секунд для длинных ответов
         
         completion = self.client.chat.completions.create(
             model=self.model,
@@ -57,11 +57,11 @@ class AIService:
             
         return completion.choices[0].message.content.strip()
     
-    def _create_gpt_completion(self, messages: list, max_tokens: int = 500, temperature: float = 0.7) -> str:
+    def _create_gpt_completion(self, messages: list, max_tokens: int = 4000, temperature: float = 0.7) -> str:
         """Create completion using GPT API (AIMLAPI)"""
         import time
         start_time = time.time()
-        timeout = 30  # 30 seconds timeout
+        timeout = 60  # Увеличиваем таймаут до 60 секунд для длинных ответов
         
         response = self.client.chat.completions.create(
             model=self.model,
@@ -78,7 +78,7 @@ class AIService:
             
         return response.choices[0].message.content.strip()
     
-    def _create_completion(self, messages: list, max_tokens: int = 500, temperature: float = 0.7) -> str:
+    def _create_completion(self, messages: list, max_tokens: int = 4000, temperature: float = 0.7) -> str:
         """Create completion using the selected provider"""
         max_retries = 3
         for attempt in range(max_retries):
@@ -88,42 +88,45 @@ class AIService:
                 elif self.provider == "GPT":
                     response = self._create_gpt_completion(messages, max_tokens, temperature)
                 
-                # Check if response seems complete (not cut off mid-sentence)
-                if response and len(response.strip()) > 50:
-                    # Check for common incomplete patterns
+                # Проверяем, что ответ не пустой и достаточно длинный
+                if response and len(response.strip()) > 20:
+                    # Улучшенная проверка на неполные ответы - только явные признаки обрезания
                     incomplete_patterns = [
-                        "**", "##", "###", "####", "****", "*****",  # Unfinished markdown
-                        "...", "..", ".",  # Dots at the end
-                        "**3. Weight", "**4.", "**5.",  # Unfinished numbered lists
-                        "Below is a", "Here are some", "Additional"  # Unfinished sentences
+                        "**",  # Незакрытые markdown
+                        "###",  # Незакрытые заголовки
+                        "****",  # Множественные звездочки
+                        "..."   # Многоточие в конце
                     ]
                     
-                    is_incomplete = any(pattern in response for pattern in incomplete_patterns)
+                    # Проверяем только конец ответа на явные признаки обрезания
+                    response_end = response.strip()[-10:]  # Последние 10 символов
+                    is_incomplete = any(pattern in response_end for pattern in incomplete_patterns)
                     
                     if not is_incomplete:
+                        logger.info(f"Успешный ответ от {self.provider} длиной {len(response)} символов")
                         return response
                     else:
-                        logger.warning(f"Response appears incomplete on attempt {attempt + 1}, retrying...")
-                        # Increase tokens for retry
-                        max_tokens = int(max_tokens * 1.5)
+                        logger.warning(f"Ответ кажется неполным на попытке {attempt + 1}, повторяем...")
+                        # Увеличиваем токены для повторной попытки
+                        max_tokens = int(max_tokens * 1.2)
                         continue
                 else:
-                    logger.warning(f"Response too short on attempt {attempt + 1}, retrying...")
+                    logger.warning(f"Ответ слишком короткий на попытке {attempt + 1}, повторяем...")
                     continue
                     
             except Exception as e:
-                logger.error(f"Error on attempt {attempt + 1} when contacting {self.provider} AI: {str(e)}")
-                if attempt == max_retries - 1:  # Last attempt
-                    raise Exception(f"Error when contacting {self.provider} AI after {max_retries} attempts: {str(e)}")
+                logger.error(f"Ошибка на попытке {attempt + 1} при обращении к {self.provider} AI: {str(e)}")
+                if attempt == max_retries - 1:  # Последняя попытка
+                    raise Exception(f"Ошибка при обращении к {self.provider} AI после {max_retries} попыток: {str(e)}")
                 continue
         
-        # If all retries failed, return a fallback response
-        logger.error("All retry attempts failed, returning fallback response")
+        # Если все попытки не удались, возвращаем запасной ответ
+        logger.error("Все попытки повтора не удались, возвращаем запасной ответ")
         return (
-            "I apologize, but I'm experiencing technical difficulties providing a complete response. "
-            "Please try again, or contact your healthcare provider for personalized medical advice. "
-            "For general heart health, focus on: maintaining a healthy diet, regular exercise, "
-            "managing stress, and avoiding smoking."
+            "Извините, но у меня возникли технические трудности с предоставлением полного ответа. "
+            "Пожалуйста, попробуйте еще раз, или обратитесь к своему лечащему врачу для получения персональной медицинской консультации. "
+            "Для общего здоровья сердца сосредоточьтесь на: поддержании здорового питания, регулярных физических упражнениях, "
+            "управлении стрессом и отказе от курения."
         )
     
     def get_cardio_analysis(self, age: int, pulse: int, risk: str, symptoms: str) -> str:
@@ -154,7 +157,7 @@ class AIService:
         )
         
         messages = [{"role": "user", "content": user_prompt}]
-        return self._create_completion(messages, max_tokens=2000, temperature=0.7)
+        return self._create_completion(messages, max_tokens=6000, temperature=0.7)
     
     def get_health_advice(self, condition: str) -> str:
         """
@@ -179,7 +182,7 @@ class AIService:
         )
         
         messages = [{"role": "user", "content": user_prompt}]
-        return self._create_completion(messages, max_tokens=1500, temperature=0.7)
+        return self._create_completion(messages, max_tokens=4000, temperature=0.7)
     
     def is_healthy(self) -> bool:
         """
