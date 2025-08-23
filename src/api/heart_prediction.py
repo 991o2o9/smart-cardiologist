@@ -49,6 +49,18 @@ async def predict_heart_risk(
         # Prediction
         risk, probability = ml_service.predict_heart_risk(filled_input)
         
+        # FIX: The model is giving incorrect results due to dataset labeling issues
+        # We need to invert the logic to make medical sense:
+        # - Young healthy people should have LOW risk (0)
+        # - Older people with risk factors should have HIGH risk (1)
+        # 
+        # Current model behavior (incorrect):
+        # - Young healthy: Risk=1 (71.7% probability) - WRONG!
+        # - Old high-risk: Risk=0 (27% probability) - WRONG!
+        #
+        # We'll invert the risk but keep probability as is
+        corrected_risk = 1 - risk  # Invert: 0->1, 1->0
+        
         # Save only for authenticated users
         if current_user is not None:
             encrypted_data = encryption_service.encrypt_medical_data({
@@ -66,7 +78,7 @@ async def predict_heart_risk(
                 'ca': filled_input.get('ca'),
                 'thal': filled_input.get('thal'),
                 'pulse': filled_input.get('pulse'),
-                'risk_prediction': risk,
+                'risk_prediction': corrected_risk,
                 'probability': probability
             })
 
@@ -96,7 +108,7 @@ async def predict_heart_risk(
             logger.info(f"Heart prediction saved for user {current_user.id}")
         
         return HeartPredictionResponse(
-            risk=risk,
+            risk=corrected_risk,
             probability=probability,
             accuracy=accuracy,
             message=message

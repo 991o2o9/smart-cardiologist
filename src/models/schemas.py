@@ -80,8 +80,8 @@ class HeartData(BaseModel):
 
 class HeartPredictionResponse(BaseModel):
     """Схема ответа для предсказания риска"""
-    risk: int = Field(..., ge=0, le=1, description="Риск (0 - низкий, 1 - высокий)")
-    probability: float = Field(..., ge=0.0, le=1.0, description="Вероятность риска")
+    risk: int = Field(..., ge=0, le=1, description="Риск (0 - низкий риск, 1 - высокий риск)")
+    probability: float = Field(..., ge=0.0, le=1.0, description="Вероятность наличия сердечного заболевания")
     accuracy: str = Field(..., description="Оценка точности результата в процентах")
     message: str = Field(..., description="Сообщение с пояснением точности")
 

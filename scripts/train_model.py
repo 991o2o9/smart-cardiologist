@@ -22,15 +22,27 @@ def load_data(data_path: str) -> pd.DataFrame:
     if not os.path.exists(data_path):
         raise FileNotFoundError(f"Data file not found: {data_path}")
     
-    # Load data
-    if data_path.endswith('.xls'):
-        data = pd.read_excel(data_path, engine='xlrd')
-    elif data_path.endswith('.xlsx'):
-        data = pd.read_excel(data_path, engine='openpyxl')
-    elif data_path.endswith('.csv'):
+    # Check file content to determine format
+    with open(data_path, 'r') as f:
+        first_line = f.readline().strip()
+    
+    # If first line contains comma, it's CSV
+    if ',' in first_line:
+        logger.info(f"Detected CSV format, reading with pd.read_csv")
         data = pd.read_csv(data_path)
     else:
-        raise ValueError("Unsupported file format. Use .xls, .xlsx, or .csv")
+        # Try Excel formats
+        try:
+            if data_path.endswith('.xls'):
+                data = pd.read_excel(data_path, engine='xlrd')
+            elif data_path.endswith('.xlsx'):
+                data = pd.read_excel(data_path, engine='openpyxl')
+            else:
+                # Default to CSV
+                data = pd.read_csv(data_path)
+        except Exception as e:
+            logger.warning(f"Failed to read as Excel, trying CSV: {e}")
+            data = pd.read_csv(data_path)
     
     logger.info(f"Data loaded: {data.shape}")
     return data
@@ -103,7 +115,7 @@ def save_model(model, scaler, columns, output_path: str):
 
 def main():
     """Main training function"""
-    # Paths
+    # Paths - the file is actually CSV despite .xls extension
     data_path = "data/raw/heart.xls"
     output_path = "data/processed/model.pkl"
     
@@ -111,6 +123,11 @@ def main():
         # Load data
         logger.info("Loading data...")
         data = load_data(data_path)
+        
+        # Log data info for debugging
+        logger.info(f"Data shape: {data.shape}")
+        logger.info(f"Target distribution: {data['target'].value_counts()}")
+        logger.info(f"Features: {list(data.columns[:-1])}")  # All except target
         
         # Preprocess data
         logger.info("Preprocessing data...")

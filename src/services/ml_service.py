@@ -17,6 +17,7 @@ class MLService:
         self.model_path = model_path
         self.model = None
         self.columns = None
+        self.scaler = None
         self.feature_means: Dict[str, Any] = {}
         try:
             self.load_model()
@@ -39,6 +40,13 @@ class MLService:
             artifact = joblib.load(self.model_path)
             self.model = artifact["model"]
             self.columns = artifact["columns"]
+            
+            # Load scaler if available
+            if "scaler" in artifact:
+                self.scaler = artifact["scaler"]
+            else:
+                self.scaler = None
+                print("⚠️  Warning: No scaler found in model artifact")
             
         except Exception as e:
             raise Exception(f"Error loading model: {str(e)}")
@@ -139,21 +147,39 @@ class MLService:
             Tuple[int, float]: (risk, probability)
         """
         try:
-            # Create DataFrame
+            # Create DataFrame with correct order of features
             df = pd.DataFrame([data])
             
-            # One-hot encoding
-            df = pd.get_dummies(df)
+            # Ensure all required columns are present in the same order as training
+            # The model expects the original 14 features, not one-hot encoded
+            expected_features = [
+                'age', 'sex', 'cp', 'trestbps', 'chol', 'fbs', 'restecg',
+                'thalach', 'exang', 'oldpeak', 'slope', 'ca', 'thal', 'pulse'
+            ]
             
-            # Align with required columns
-            df = df.reindex(columns=self.columns, fill_value=0)
+            # Reorder columns to match training data
+            df = df.reindex(columns=expected_features, fill_value=0)
+            
+            # Apply the same preprocessing as during training
+            # One-hot encoding for categorical variables
+            categorical_cols = ['sex', 'cp', 'fbs', 'restecg', 'exang', 'slope', 'ca', 'thal']
+            df_encoded = pd.get_dummies(df, columns=categorical_cols)
+            
+            # Align with required columns from training
+            df_encoded = df_encoded.reindex(columns=self.columns, fill_value=0)
+            
+            # Apply scaling if scaler is available
+            if hasattr(self, 'scaler') and self.scaler is not None:
+                df_scaled = self.scaler.transform(df_encoded)
+            else:
+                df_scaled = df_encoded.values
             
             # Prediction
-            prediction = self.model.predict(df)[0]
+            prediction = self.model.predict(df_scaled)[0]
             
             # Probability
             if hasattr(self.model, "predict_proba"):
-                probability = float(self.model.predict_proba(df)[:, 1][0])
+                probability = float(self.model.predict_proba(df_scaled)[:, 1][0])
             else:
                 probability = float(prediction)
             
@@ -206,5 +232,6 @@ class MLService:
             "model_type": type(self.model).__name__ if self.model else None,
             "features_count": len(self.columns) if self.columns else 0,
             "is_loaded": self.model is not None,
+            "has_scaler": self.scaler is not None,
             "is_healthy": self.is_healthy()
         }
