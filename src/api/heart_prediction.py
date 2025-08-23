@@ -50,16 +50,14 @@ async def predict_heart_risk(
         risk, probability = ml_service.predict_heart_risk(filled_input)
         
         # FIX: The model is giving incorrect results due to dataset labeling issues
-        # We need to invert the logic to make medical sense:
-        # - Young healthy people should have LOW risk (0)
-        # - Older people with risk factors should have HIGH risk (1)
+        # We need to determine risk based on probability, not just invert the model output
         # 
-        # Current model behavior (incorrect):
-        # - Young healthy: Risk=1 (71.7% probability) - WRONG!
-        # - Old high-risk: Risk=0 (27% probability) - WRONG!
+        # Medical logic:
+        # - Low risk (0): probability < 0.5 (less than 50% chance of heart disease)
+        # - High risk (1): probability >= 0.5 (50% or higher chance of heart disease)
         #
-        # We'll invert the risk but keep probability as is
-        corrected_risk = 1 - risk  # Invert: 0->1, 1->0
+        # This makes more sense than just inverting the model's binary output
+        corrected_risk = 1 if probability >= 0.5 else 0
         
         # Save only for authenticated users
         if current_user is not None:
