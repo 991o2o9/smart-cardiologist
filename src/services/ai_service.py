@@ -29,7 +29,7 @@ class AIService:
                 base_url="https://api.aimlapi.com/v1",
                 api_key=api_key,
             )
-            self.model = "deepseek-chat"
+            self.model = "openai/gpt-5-chat-latest"
             logger.info("AI Service initialized with GPT provider (AIMLAPI)")
             
         else:
